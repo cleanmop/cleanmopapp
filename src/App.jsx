@@ -442,15 +442,19 @@ const unlockMonth = async () => {
       .map(([manager, data]) => ({ manager, total: data.total, details: data.details }))
       .sort((a, b) => b.total - a.total);
 
-  const calculateMonthlyItems = () => {
-    const result = {};
-    monthlyWorks.forEach((work) => {
-      Object.entries(work.items).forEach(([itemName, count]) => {
-        if (count > 0) result[itemName] = (result[itemName] || 0) + count;
-      });
+  const calculateMonthlyItems = (targetWorks = monthlyWorks) => {
+  const result = {};
+
+  targetWorks.forEach((work) => {
+    Object.entries(work.items).forEach(([itemName, count]) => {
+      if (count > 0) {
+        result[itemName] = (result[itemName] || 0) + count;
+      }
     });
-    return result;
-  };
+  });
+
+  return result;
+};
 
   const getManagerWorks = (managerName) =>
     monthlyWorks.filter((work) => (work.visitManagers || []).includes(managerName));
@@ -958,7 +962,7 @@ const getManagerSummary = (managerName) => {
           <div style={{ border: "1px solid #999", padding: "10px", margin: "15px 0", backgroundColor: "#f7f7f7" }}>
             <h3>{selectedMonth} 작업 요약</h3>
             <p>총 작업등록: {visibleWorks.length}건</p>
-            {Object.entries(calculateMonthlyItems()).map(([itemName, count]) => (
+            {Object.entries(calculateMonthlyItems(visibleWorks)).map(([itemName, count]) => (
               <p key={itemName}>{itemName}: {count}대</p>
             ))}
           </div>
