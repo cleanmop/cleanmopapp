@@ -49,7 +49,14 @@ function App() {
   const [page, setPage] = useState("home");
   const [users, setUsers] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
+  const [newUserName, setNewUserName] = useState("");
+  const [newUserRole, setNewUserRole] = useState("manager");
+  const [newUserYear, setNewUserYear] = useState("26");
+  const [newPassword, setNewPassword] = useState("");
+  const [loginName, setLoginName] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [lockedMonths, setLockedMonths] = useState([]);
   const [selectedManager, setSelectedManager] = useState("전체");
   const [editingWorkId, setEditingWorkId] = useState(null);
 
@@ -76,13 +83,28 @@ const [vocMemo, setVocMemo] = useState("");
   useEffect(() => {
   loadWorks();
   loadVocs();
-  //loadUsers();
+  loadUsers();
+  loadMonthLocks();
 }, []);
   
   const monthlyWorks = works.filter((work) => work.workDate.startsWith(selectedMonth));
+
+    const visibleWorks =
+  currentUser?.role === "manager"
+    ? monthlyWorks.filter((work) =>
+        (work.visitManagers || []).includes(currentUser.name)
+      )
+    : monthlyWorks;
+
   const monthlyVocs = vocs.filter(
   (voc) => voc.date.startsWith(selectedMonth)
 );
+
+  const visibleVocs =
+  currentUser?.role === "manager"
+    ? monthlyVocs.filter((voc) => voc.manager === currentUser.name)
+    : monthlyVocs;
+
 
   const changeItemCount = (itemName, value) => {
     setItems({ ...items, [itemName]: Number(value) });
@@ -103,6 +125,10 @@ const [vocMemo, setVocMemo] = useState("");
 
   const saveWork = async () => {
     if (!workDate) return alert("작업일을 선택하세요.");
+    if (isMonthLocked(workDate.slice(0, 7))) {
+  alert("마감된 월은 작업을 등록/수정할 수 없습니다.");
+  return;
+}
     if (!visitManager1) return alert("방문매니저1을 선택하세요.");
 
     const visitManagers =
@@ -123,16 +149,24 @@ const [vocMemo, setVocMemo] = useState("");
     const hasItem = Object.values(items).some((count) => count > 0);
     if (!hasItem) return alert("품목 수량을 1개 이상 입력하세요.");
 
+    const finalCodeName =
+  currentUser?.role === "manager" ? currentUser.name : codeName;
+
+const finalVisitManagers =
+  currentUser?.role === "manager"
+    ? [currentUser.name]
+    : visitManagers;
+
     const newWork = {
-      id: editingWorkId || Date.now(),
-      workDate,
-      company,
-      codeName,
-      workType,
-      teamCount: workType === "team" ? teamCount : 1,
-      visitManagers,
-      items,
-    };
+  id: editingWorkId || Date.now(),
+  workDate,
+  company,
+  codeName: finalCodeName,
+  workType,
+  teamCount: finalVisitManagers.length,
+  visitManagers: finalVisitManagers,
+  items,
+};
     const dbWork = {
   id: newWork.id,
   work_date: newWork.workDate,
@@ -200,6 +234,13 @@ if (editingWorkId) {
   setWorks(converted);
 };
   const deleteWork = async (id) => {
+  const targetWork = works.find((work) => work.id === id);
+
+  if (targetWork && isMonthLocked(targetWork.workDate.slice(0, 7))) {
+    alert("마감된 월의 작업은 삭제할 수 없습니다.");
+    return;
+  }
+
   if (!confirm("이 작업을 삭제할까요?")) return;
 
   const { error } = await supabase
@@ -229,6 +270,20 @@ const loadVocs = async () => {
     return;
   }
 
+  const loadUsers = async () => {
+  const { data, error } = await supabase
+    .from("users")
+    .select("*")
+    .order("name");
+
+  if (error) {
+    console.error(error);
+    return;
+  }
+
+  setUsers(data || []);
+};
+
   const converted = (data || []).map((voc) => ({
     id: voc.id,
     date: voc.voc_date,
@@ -253,6 +308,77 @@ const loadUsers = async () => {
   }
 
   setUsers(data || []);
+};
+
+const loadMonthLocks = async () => {
+  const { data, error } = await supabase
+    .from("month_locks")
+    .select("*");
+
+  if (error) {
+    console.error(error);
+    return;
+  }
+
+  setLockedMonths(data || []);
+};
+
+const isMonthLocked = (month) => {
+  return lockedMonths.some(
+    (item) =>
+      item.month === month &&
+      item.locked === true
+  );
+};
+
+const lockMonth = async () => {
+  if (
+    !confirm(
+      `${selectedMonth}을(를) 마감할까요?`
+    )
+  )
+    return;
+
+  const { error } = await supabase
+    .from("month_locks")
+    .upsert([
+      {
+        month: selectedMonth,
+        locked: true,
+      },
+    ]);
+
+  if (error) {
+    alert(JSON.stringify(error));
+    return;
+  }
+
+  await loadMonthLocks();
+
+  alert("월마감 완료");
+};
+
+const unlockMonth = async () => {
+  if (
+    !confirm(
+      `${selectedMonth} 마감을 해제할까요?`
+    )
+  )
+    return;
+
+  const { error } = await supabase
+    .from("month_locks")
+    .delete()
+    .eq("month", selectedMonth);
+
+  if (error) {
+    alert(JSON.stringify(error));
+    return;
+  }
+
+  await loadMonthLocks();
+
+  alert("마감 해제 완료");
 };
 
   const startEditWork = (work) => {
@@ -358,6 +484,10 @@ const loadUsers = async () => {
 
    const saveVoc = async () => {
   if (!vocDate) return alert("등록일을 선택하세요.");
+  if (isMonthLocked(vocDate.slice(0, 7))) {
+  alert("마감된 월은 VOC를 등록할 수 없습니다.");
+  return;
+}
   if (!vocManager) return alert("매니저를 선택하세요.");
   if (!vocMemo) return alert("VOC 내용을 입력하세요.");
 
@@ -400,7 +530,114 @@ const loadUsers = async () => {
   alert("VOC가 등록되었습니다.");
 };
 
+const changePassword = async () => {
+  if (!newPassword) {
+    alert("새 비밀번호를 입력하세요.");
+    return;
+  }
+
+  const { error } = await supabase
+    .from("users")
+    .update({ password: newPassword })
+    .eq("id", currentUser.id);
+
+  if (error) {
+    console.error(error);
+    alert("비밀번호 변경 실패");
+    return;
+  }
+
+  alert("비밀번호가 변경되었습니다.");
+
+const updatedUser = {
+  ...currentUser,
+  password: newPassword,
+};
+
+setCurrentUser(updatedUser);
+
+setUsers(
+  users.map((user) =>
+    user.id === currentUser.id ? updatedUser : user
+  )
+);
+
+setNewPassword("");
+setPage("home");
+};
+
+const addUser = async () => {
+  if (!newUserName) {
+    alert("기사명을 입력하세요.");
+    return;
+  }
+
+  const { error } = await supabase
+    .from("users")
+    .insert([
+      {
+        name: newUserName,
+        role: newUserRole,
+        year: newUserYear,
+        password: "0000",
+      },
+    ]);
+
+  if (error) {
+    alert(JSON.stringify(error));
+    return;
+  }
+
+  await loadUsers();
+
+  setNewUserName("");
+  alert("기사가 추가되었습니다.");
+};
+
+const resetUserPassword = async (id) => {
+  if (!confirm("비밀번호를 0000으로 초기화할까요?")) return;
+
+  const { error } = await supabase
+    .from("users")
+    .update({ password: "0000" })
+    .eq("id", id);
+
+  if (error) {
+    alert(JSON.stringify(error));
+    return;
+  }
+
+  await loadUsers();
+
+  alert("초기화 완료");
+};
+
+const deleteUser = async (id) => {
+  if (!confirm("기사를 삭제할까요?")) return;
+
+  const { error } = await supabase
+    .from("users")
+    .delete()
+    .eq("id", id);
+
+  if (error) {
+    alert(JSON.stringify(error));
+    return;
+  }
+
+  await loadUsers();
+
+  alert("삭제 완료");
+};
+
 const deleteVoc = async (id) => {
+  const targetVoc = vocs.find((voc) => voc.id === id);
+
+  if (targetVoc && isMonthLocked(targetVoc.date.slice(0, 7))) {
+    alert("마감된 월의 VOC는 삭제할 수 없습니다.");
+    return;
+  }
+
   if (!confirm("이 VOC를 삭제할까요?")) return;
 
   const { error } = await supabase
@@ -429,6 +666,26 @@ const calculateManagerScore = (manager) => {
 
 const getManagerVocs = (manager) => {
   return monthlyVocs.filter((voc) => voc.manager === manager);
+};
+
+const getManagerSummary = (managerName) => {
+  const settlement = calculateSettlement();
+  const managerData = settlement[managerName];
+
+  const managerWorks = monthlyWorks.filter((work) =>
+    (work.visitManagers || []).includes(managerName)
+  );
+
+  const managerVocs = monthlyVocs.filter(
+    (voc) => voc.manager === managerName
+  );
+
+  return {
+    workCount: managerWorks.length,
+    totalPay: managerData?.total || 0,
+    vocCount: managerVocs.length,
+    score: calculateManagerScore(managerName),
+  };
 };
 
   const downloadSettlementExcel = () => {
@@ -472,13 +729,8 @@ const getManagerVocs = (manager) => {
     <h2>로그인</h2>
 
     <select
-      onChange={(e) => {
-        const selected = users.find((user) => user.name === e.target.value);
-        if (selected) {
-          setCurrentUser(selected);
-          setSelectedManager(selected.name);
-        }
-      }}
+      value={loginName}
+      onChange={(e) => setLoginName(e.target.value)}
     >
       <option value="">사용자 선택</option>
       {users.map((user) => (
@@ -487,37 +739,125 @@ const getManagerVocs = (manager) => {
         </option>
       ))}
     </select>
-  </>
-) : (
-  <>
-    <p>
-      로그인: {currentUser.name} /{" "}
-      {currentUser.role === "admin" ? "관리자" : "기사"}
-    </p>
+
+    <br /><br />
+
+    <input
+      type="password"
+      value={loginPassword}
+      onChange={(e) => setLoginPassword(e.target.value)}
+      placeholder="비밀번호"
+    />
+
+    <br /><br />
 
     <button
       onClick={() => {
-        setCurrentUser(null);
-        setPage("home");
+        const selected = users.find(
+          (user) =>
+            user.name === loginName &&
+            user.password === loginPassword
+        );
+
+        if (!selected) {
+          alert("이름 또는 비밀번호가 맞지 않습니다.");
+          return;
+        }
+
+        setCurrentUser(selected);
+        setSelectedManager(selected.name);
+        setLoginPassword("");
       }}
     >
-      로그아웃
+      로그인
     </button>
   </>
+) : (
+
+    <button
+  onClick={() => {
+    setCurrentUser(null);
+    setLoginName("");
+    setLoginPassword("");
+    setPage("home");
+  }}
+>
+  로그아웃
+</button>
+  
 )}
 
-      {page === "home" && (
-        <>
-          <h2>메뉴</h2>
-          <button onClick={() => setPage("workAdd")}>작업 등록</button><br /><br />
-          <button onClick={() => setPage("workList")}>작업 조회</button><br /><br />
-          <button onClick={() => setPage("settlement")}>정산 조회</button><br /><br />
-          <button onClick={() => setPage("managerStats")}>기사별 대시보드</button><br /><br />
-          <button onClick={() => setPage("vocAdd")}>VOC 등록</button><br /><br />
-          <button onClick={() => setPage("vocList")}>VOC 조회</button><br /><br />
-          <button onClick={() => setPage("companyStats")}>업체별 실적</button><br /><br />
+      {page === "home" && currentUser && (
+  <>
+    <h2>메뉴</h2>
+    {currentUser?.role === "manager" && (
+  <div
+    style={{
+      border: "1px solid #999",
+      padding: "10px",
+      marginBottom: "15px",
+      backgroundColor: "#f7f7f7",
+    }}
+  >
+    <h3>{currentUser.name}님 이번달 요약</h3>
+
+    <p>
+      작업건수:{" "}
+      {getManagerSummary(currentUser.name).workCount}건
+    </p>
+
+    <p>
+      예상정산:{" "}
+      {getManagerSummary(currentUser.name).totalPay.toLocaleString()}원
+    </p>
+
+    <p>
+      VOC: {getManagerSummary(currentUser.name).vocCount}건
+    </p>
+
+    <p>
+      기사점수: {getManagerSummary(currentUser.name).score}점
+    </p>
+  </div>
+)}    
+    {currentUser.role === "admin" && (
+      <>
+        <button onClick={() => setPage("workAdd")}>작업 등록</button><br /><br />
+        <button onClick={() => setPage("workList")}>작업 조회</button><br /><br />
+        <button onClick={() => setPage("settlement")}>정산 조회</button><br /><br />
+        <button onClick={() => setPage("managerStats")}>기사별 대시보드</button><br /><br />
+        <button onClick={() => setPage("vocAdd")}>VOC 등록</button><br /><br />
+        <button onClick={() => setPage("vocList")}>VOC 조회</button><br /><br />
+        <button onClick={() => setPage("companyStats")}>업체별 실적</button><br /><br />
+        <button onClick={() => setPage("changePassword")}>비밀번호 변경</button><br /><br />
+        <button onClick={() => setPage("userManage")}>기사 관리</button><br /><br />
+        <button onClick={() => setPage("monthLock")}>월마감</button><br /><br />
         </>
-      )}
+    )}
+
+    {currentUser.role === "manager" && (
+      <>
+        <button
+          onClick={() => {
+            setSelectedManager(currentUser.name);
+            setPage("managerStats");
+          }}
+        >
+          내 대시보드
+        </button>
+        <br /><br />
+        <button onClick={() => setPage("workAdd")}>작업 등록</button><br /><br />
+
+        <button onClick={() => setPage("workList")}>내 작업 조회</button>
+        <br /><br />
+
+        <button onClick={() => setPage("vocList")}>내 VOC 조회</button>
+        <br /><br />
+        <button onClick={() => setPage("changePassword")}>비밀번호 변경</button><br /><br />
+      </>
+    )}
+  </>
+)}
 
       {page === "workAdd" && (
         <>
@@ -617,13 +957,13 @@ const getManagerVocs = (manager) => {
 
           <div style={{ border: "1px solid #999", padding: "10px", margin: "15px 0", backgroundColor: "#f7f7f7" }}>
             <h3>{selectedMonth} 작업 요약</h3>
-            <p>총 작업등록: {monthlyWorks.length}건</p>
+            <p>총 작업등록: {visibleWorks.length}건</p>
             {Object.entries(calculateMonthlyItems()).map(([itemName, count]) => (
               <p key={itemName}>{itemName}: {count}대</p>
             ))}
           </div>
 
-          {monthlyWorks.map((work) => (
+          {visibleWorks.map((work) => (
             <div key={work.id} style={{ border: "1px solid #ccc", padding: "10px", marginBottom: "10px" }}>
               <strong>{work.workDate}</strong>
               <p>업체: {companyName[work.company]}</p>
@@ -637,8 +977,12 @@ const getManagerVocs = (manager) => {
                   .map(([name, count]) => ` ${name} ${count}대`)
                   .join(", ")}
               </p>
-              <button onClick={() => startEditWork(work)}>수정</button>{" "}
-              <button onClick={() => deleteWork(work.id)}>삭제</button>
+              {!isMonthLocked(work.workDate.slice(0, 7)) && (
+  <>
+    <button onClick={() => startEditWork(work)}>수정</button>{" "}
+    <button onClick={() => deleteWork(work.id)}>삭제</button>
+  </>
+)}
             </div>
           ))}
 
@@ -826,22 +1170,143 @@ const getManagerVocs = (manager) => {
             onChange={(e) => setSelectedMonth(e.target.value)}
           /><br /><br />
 
-          {monthlyVocs.length === 0 && <p>등록된 VOC가 없습니다.</p>}
+          {visibleVocs.length === 0 && <p>등록된 VOC가 없습니다.</p>}
 
-          {monthlyVocs.map((voc) => (
+          {visibleVocs.map((voc) => (
             <div key={voc.id} style={{ border: "1px solid #ccc", padding: "10px", margin: "10px 0" }}>
               <strong>{voc.date}</strong>
               <p>업체: {companyName[voc.company]}</p>
               <p>매니저: {voc.manager}</p>
               <p>정도: {vocPenalty[voc.level]?.label} -{vocPenalty[voc.level]?.point}점</p>
               <p>내용: {voc.memo}</p>
-              <button onClick={() => deleteVoc(voc.id)}>삭제</button>
+              {!isMonthLocked(voc.date.slice(0, 7)) && (
+  <button onClick={() => deleteVoc(voc.id)}>삭제</button>
+)}
             </div>
           ))}
 
           <button onClick={() => setPage("home")}>← 메뉴로 돌아가기</button>
         </>
       )}
+
+          {page === "changePassword" && (
+        <>
+          <h2>비밀번호 변경</h2>
+
+          <input
+            type="password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            placeholder="새 비밀번호"
+          />
+
+          <br /><br />
+
+          <button onClick={changePassword}>
+            변경하기
+          </button>
+
+          <br /><br />
+
+          <button onClick={() => setPage("home")}>
+            ← 메뉴로 돌아가기
+          </button>
+        </>
+      )} 
+
+          {page === "userManage" && (
+  <>
+    <h2>기사 관리</h2>
+
+    <input
+      value={newUserName}
+      onChange={(e) => setNewUserName(e.target.value)}
+      placeholder="기사명"
+    />
+
+    <br /><br />
+
+    <select
+      value={newUserYear}
+      onChange={(e) => setNewUserYear(e.target.value)}
+    >
+      <option value="24">24년차</option>
+      <option value="25">25년차</option>
+      <option value="26">26년차</option>
+    </select>
+
+    <br /><br />
+
+    <button onClick={addUser}>
+      기사 추가
+    </button>
+
+    <hr />
+
+    {users.map((user) => (
+      <div key={user.id}>
+        {user.name} ({user.role})
+
+        <button
+          onClick={() => resetUserPassword(user.id)}
+        >
+          비밀번호 초기화
+        </button>
+
+        <button
+          onClick={() => deleteUser(user.id)}
+        >
+          삭제
+        </button>
+
+        <br /><br />
+      </div>
+    ))}
+
+    <button onClick={() => setPage("home")}>
+      ← 메뉴로 돌아가기
+    </button>
+  </>
+)}
+
+{page === "monthLock" && (
+  <>
+    <h2>월마감</h2>
+
+    <input
+      type="month"
+      value={selectedMonth}
+      onChange={(e) =>
+        setSelectedMonth(e.target.value)
+      }
+    />
+
+    <br /><br />
+
+    <p>
+      상태 :
+      {isMonthLocked(selectedMonth)
+        ? " 🔒 마감"
+        : " 🔓 진행중"}
+    </p>
+
+    {!isMonthLocked(selectedMonth) ? (
+  <button onClick={lockMonth}>
+    월마감 실행
+  </button>
+) : (
+  <button onClick={unlockMonth}>
+    마감 해제
+  </button>
+)}
+
+    <br /><br />
+
+    <button onClick={() => setPage("home")}>
+      ← 메뉴로 돌아가기
+    </button>
+  </>
+)}
     </div>
   );
 }
