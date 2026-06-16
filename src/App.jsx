@@ -1023,17 +1023,35 @@ const getManagerSummary = (managerName) => {
           <label>조회월</label><br />
           <input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} /><br /><br />
 
-          <label>기사 선택</label><br />
-          <select value={selectedManager} onChange={(e) => setSelectedManager(e.target.value)}>
-            <option value="전체">전체</option>
-            {managerList.filter((name) => name !== "없음").map((name) => (
-              <option key={name} value={name}>{name}</option>
-            ))}
-          </select><br /><br />
+          {currentUser?.role === "admin" && (
+  <>
+    <label>기사 선택</label><br />
 
+    <select
+      value={selectedManager}
+      onChange={(e) => setSelectedManager(e.target.value)}
+    >
+      <option value="전체">전체</option>
+
+      {managerList.map((name) => (
+        <option key={name} value={name}>
+          {name}
+        </option>
+      ))}
+    </select>
+
+    <br /><br />
+  </>
+)}
           {calculateManagerStats()
-            .filter((data) => selectedManager === "전체" || data.manager === selectedManager)
-            .map((data, index) => {
+  .filter((data) => {
+    if (currentUser?.role === "manager") {
+      return data.manager === currentUser.name;
+    }
+
+    return selectedManager === "전체" || data.manager === selectedManager;
+  })
+  .map((data, index) => {
               
               return (
                 <div key={data.manager} style={{ border: "1px solid #ccc", padding: "10px", marginBottom: "10px" }}>
