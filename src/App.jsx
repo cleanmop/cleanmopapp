@@ -121,9 +121,6 @@ const [vocMemo, setVocMemo] = useState("");
     setCodeName("없음");
     setWorkType("solo");
     setTeamCount(2);
-    setVisitManager1("");
-    setVisitManager2("없음");
-    setVisitManager3("없음");
     setItems(Object.fromEntries(itemList.map((item) => [item, 0])));
     setEditingWorkId(null);
   };
@@ -134,7 +131,9 @@ const [vocMemo, setVocMemo] = useState("");
   alert("마감된 월은 작업을 등록/수정할 수 없습니다.");
   return;
 }
-    if (!visitManager1) return alert("방문매니저1을 선택하세요.");
+    if (!visitManagers[0] || visitManagers[0] === "없음") {
+  return alert("방문매니저1을 선택하세요.");
+}
 
     const selectedManagers =
   workType === "solo"
@@ -143,13 +142,13 @@ const [vocMemo, setVocMemo] = useState("");
         .slice(0, teamCount)
         .filter((name) => name && name !== "없음");
 
-    if (workType === "solo" && visitManagers.length !== 1) {
-      return alert("혼자 작업은 방문매니저 1명만 선택하세요.");
-    }
+    if (workType === "solo" && selectedManagers.length !== 1) {
+  return alert("혼자 작업은 방문매니저 1명만 선택하세요.");
+}
 
-    if (workType === "team" && visitManagers.length !== teamCount) {
-      return alert(`동행인원 ${teamCount}명을 모두 선택하세요.`);
-    }
+if (workType === "team" && selectedManagers.length !== teamCount) {
+  return alert(`동행인원 ${teamCount}명을 모두 선택하세요.`);
+}
 
     const hasItem = Object.values(items).some((count) => count > 0);
     if (!hasItem) return alert("품목 수량을 1개 이상 입력하세요.");
@@ -157,7 +156,6 @@ const [vocMemo, setVocMemo] = useState("");
     const finalCodeName =
   currentUser?.role === "manager" ? currentUser.name : codeName;
 
-const finalVisitManagers = visitManagers;
 
     const newWork = {
   id: editingWorkId || Date.now(),
@@ -165,7 +163,7 @@ const finalVisitManagers = visitManagers;
   company,
   codeName: finalCodeName,
   workType,
-  teamCount: finalVisitManagers.length,
+  teamCount: selectedManagers.length,
   visitManagers: selectedManagers,
   items,
 };
@@ -918,11 +916,10 @@ setLoginPassword("");
           <select
             value={workType}
             onChange={(e) => {
-              setWorkType(e.target.value);
-              setVisitManager2("없음");
-              setVisitManager3("없음");
-              setTeamCount(2);
-            }}
+  setWorkType(e.target.value);
+  setVisitManagers(Array(10).fill("없음"));
+  setTeamCount(2);
+}}
           >
             <option value="solo">혼자 작업</option>
             <option value="team">동행 작업</option>
