@@ -1,3 +1,4 @@
+import { supabase } from "./supabase";
 import { useEffect, useState } from "react";
 import * as XLSX from "xlsx";
 
@@ -46,14 +47,13 @@ function App() {
   };
 
   const [page, setPage] = useState("home");
+  const [users, setUsers] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null);
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
   const [selectedManager, setSelectedManager] = useState("전체");
   const [editingWorkId, setEditingWorkId] = useState(null);
 
-  const [works, setWorks] = useState(() => {
-    const savedWorks = localStorage.getItem("cleanmopWorks");
-    return savedWorks ? JSON.parse(savedWorks) : [];
-  });
+  const [works, setWorks] = useState([]);
 
   const [workDate, setWorkDate] = useState("");
   const [company, setCompany] = useState("S");
@@ -65,10 +65,7 @@ function App() {
   const [visitManager3, setVisitManager3] = useState("없음");
   const [items, setItems] = useState(Object.fromEntries(itemList.map((item) => [item, 0])));
 
-  const [vocs, setVocs] = useState(() => {
-  const savedVocs = localStorage.getItem("cleanmopVocs");
-  return savedVocs ? JSON.parse(savedVocs) : [];
-});
+  const [vocs, setVocs] = useState([]);
 
 const [vocDate, setVocDate] = useState("");
 const [vocCompany, setVocCompany] = useState("S");
@@ -76,11 +73,12 @@ const [vocManager, setVocManager] = useState("");
 const [vocLevel, setVocLevel] = useState("minor");
 const [vocMemo, setVocMemo] = useState("");
 
-  useEffect(() => localStorage.setItem("cleanmopWorks", JSON.stringify(works)), [works]);
   useEffect(() => {
-  localStorage.setItem("cleanmopVocs", JSON.stringify(vocs));
-}, [vocs]);
-
+  loadWorks();
+  loadVocs();
+  //loadUsers();
+}, []);
+  
   const monthlyWorks = works.filter((work) => work.workDate.startsWith(selectedMonth));
   const monthlyVocs = vocs.filter(
   (voc) => voc.date.startsWith(selectedMonth)
@@ -103,7 +101,7 @@ const [vocMemo, setVocMemo] = useState("");
     setEditingWorkId(null);
   };
 
-  const saveWork = () => {
+  const saveWork = async () => {
     if (!workDate) return alert("작업일을 선택하세요.");
     if (!visitManager1) return alert("방문매니저1을 선택하세요.");
 
@@ -135,23 +133,182 @@ const [vocMemo, setVocMemo] = useState("");
       visitManagers,
       items,
     };
+    const dbWork = {
+  id: newWork.id,
+  work_date: newWork.workDate,
+  company: newWork.company,
+  code_name: newWork.codeName,
+  work_type: newWork.workType,
+  team_count: newWork.teamCount,
+  visit_managers: newWork.visitManagers,
+  items: newWork.items,
+};
 
-    if (editingWorkId) {
-      setWorks(works.map((work) => (work.id === editingWorkId ? newWork : work)));
-    } else {
-      setWorks([newWork, ...works]);
-    }
+if (editingWorkId) {
+  const { error } = await supabase
+    .from("works")
+    .update(dbWork)
+    .eq("id", editingWorkId);
+
+  if (error) {
+    console.error(error);
+    alert(JSON.stringify(error));
+    return;
+  }
+
+  await loadWorks();
+} else {
+  const { error } = await supabase
+    .from("works")
+    .insert([dbWork]);
+
+  if (error) {
+    console.error(error);
+    alert(JSON.stringify(error));
+    return;
+  }
+
+  await loadWorks();
+}
 
     resetForm();
     alert(editingWorkId ? "수정되었습니다." : "저장되었습니다.");
   };
 
-  const deleteWork = (id) => {
-    if (confirm("이 작업을 삭제할까요?")) {
-      setWorks(works.filter((work) => work.id !== id));
-    }
-  };
+ const loadWorks = async () => {
+  const { data, error } = await supabase
+    .from("works")
+    .select("*")
+    .order("work_date", { ascending: false });
 
+  if (error) {
+    console.error(error);
+    return;
+  }
+  useEffect(() => {
+  const channel = supabase
+    .channel("works-realtime")
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "works",
+      },
+      () => {
+        loadWorks();
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, []);
+
+  const converted = (data || []).map((work) => ({
+    id: work.id,
+    workDate: work.work_date,
+    company: work.company,
+    codeName: work.code_name,
+    workType: work.work_type,
+    teamCount: work.team_count,
+    visitManagers: work.visit_managers,
+    items: work.items,
+  }));
+
+  setWorks(converted);
+};
+  const deleteWork = async (id) => {
+  if (!confirm("이 작업을 삭제할까요?")) return;
+
+  const { error } = await supabase
+    .from("works")
+    .delete()
+    .eq("id", id);
+
+  if (error) {
+    console.error(error);
+    alert(JSON.stringify(error));
+    return;
+  }
+
+  await loadWorks();
+
+  alert("삭제되었습니다.");
+};
+
+const loadVocs = async () => {
+  const { data, error } = await supabase
+    .from("vocs")
+    .select("*")
+    .order("voc_date", { ascending: false });
+
+  if (error) {
+    console.error(error);
+    return;
+  }
+
+  const converted = (data || []).map((voc) => ({
+    id: voc.id,
+    date: voc.voc_date,
+    company: voc.company,
+    manager: voc.manager,
+    level: voc.level,
+    memo: voc.memo,
+  }));
+
+  setVocs(converted);
+};
+
+const loadUsers = async () => {
+  const { data, error } = await supabase
+    .from("users")
+    .select("*")
+    .order("name", { ascending: true });
+
+  if (error) {
+    console.error(error);
+    return;
+  }
+
+  setUsers(data || []);
+};
+
+useEffect(() => {
+  loadWorks();
+  loadVocs();
+  loadUsers();
+}, []);
+
+useEffect(() => {
+  const worksChannel = supabase
+    .channel("works-realtime")
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "works" },
+      () => {
+        loadWorks();
+      }
+    )
+    .subscribe();
+
+  const vocsChannel = supabase
+    .channel("vocs-realtime")
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "vocs" },
+      () => {
+        loadVocs();
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(worksChannel);
+    supabase.removeChannel(vocsChannel);
+  };
+}, []);
   const startEditWork = (work) => {
     setEditingWorkId(work.id);
     setWorkDate(work.workDate);
@@ -253,7 +410,7 @@ const [vocMemo, setVocMemo] = useState("");
     }));
   };
 
-    const saveVoc = () => {
+   const saveVoc = async () => {
   if (!vocDate) return alert("등록일을 선택하세요.");
   if (!vocManager) return alert("매니저를 선택하세요.");
   if (!vocMemo) return alert("VOC 내용을 입력하세요.");
@@ -267,7 +424,26 @@ const [vocMemo, setVocMemo] = useState("");
     memo: vocMemo,
   };
 
-  setVocs([newVoc, ...vocs]);
+  const dbVoc = {
+    id: newVoc.id,
+    voc_date: newVoc.date,
+    company: newVoc.company,
+    manager: newVoc.manager,
+    level: newVoc.level,
+    memo: newVoc.memo,
+  };
+
+  const { error } = await supabase
+    .from("vocs")
+    .insert([dbVoc]);
+
+  if (error) {
+    console.error(error);
+    alert(JSON.stringify(error));
+    return;
+  }
+
+  await loadVocs();
 
   setVocDate("");
   setVocCompany("S");
@@ -278,10 +454,23 @@ const [vocMemo, setVocMemo] = useState("");
   alert("VOC가 등록되었습니다.");
 };
 
-const deleteVoc = (id) => {
-  if (confirm("이 VOC를 삭제할까요?")) {
-    setVocs(vocs.filter((voc) => voc.id !== id));
+const deleteVoc = async (id) => {
+  if (!confirm("이 VOC를 삭제할까요?")) return;
+
+  const { error } = await supabase
+    .from("vocs")
+    .delete()
+    .eq("id", id);
+
+  if (error) {
+    console.error(error);
+    alert(JSON.stringify(error));
+    return;
   }
+
+  await loadVocs();
+
+  alert("삭제되었습니다.");
 };
 
 const calculateManagerScore = (manager) => {
@@ -332,6 +521,44 @@ const getManagerVocs = (manager) => {
     <div style={{ padding: "20px" }}>
       <h1>클린맙 업무관리 시스템</h1>
       <hr />
+      {!currentUser ? (
+  <>
+    <h2>로그인</h2>
+
+    <select
+      onChange={(e) => {
+        const selected = users.find((user) => user.name === e.target.value);
+        if (selected) {
+          setCurrentUser(selected);
+          setSelectedManager(selected.name);
+        }
+      }}
+    >
+      <option value="">사용자 선택</option>
+      {users.map((user) => (
+        <option key={user.id} value={user.name}>
+          {user.name}
+        </option>
+      ))}
+    </select>
+  </>
+) : (
+  <>
+    <p>
+      로그인: {currentUser.name} /{" "}
+      {currentUser.role === "admin" ? "관리자" : "기사"}
+    </p>
+
+    <button
+      onClick={() => {
+        setCurrentUser(null);
+        setPage("home");
+      }}
+    >
+      로그아웃
+    </button>
+  </>
+)}
 
       {page === "home" && (
         <>
