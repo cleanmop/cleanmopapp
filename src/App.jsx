@@ -185,27 +185,7 @@ if (editingWorkId) {
     console.error(error);
     return;
   }
-  useEffect(() => {
-  const channel = supabase
-    .channel("works-realtime")
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "works",
-      },
-      () => {
-        loadWorks();
-      }
-    )
-    .subscribe();
-
-  return () => {
-    supabase.removeChannel(channel);
-  };
-}, []);
-
+  
   const converted = (data || []).map((work) => ({
     id: work.id,
     workDate: work.work_date,
@@ -275,40 +255,6 @@ const loadUsers = async () => {
   setUsers(data || []);
 };
 
-useEffect(() => {
-  loadWorks();
-  loadVocs();
-  loadUsers();
-}, []);
-
-useEffect(() => {
-  const worksChannel = supabase
-    .channel("works-realtime")
-    .on(
-      "postgres_changes",
-      { event: "*", schema: "public", table: "works" },
-      () => {
-        loadWorks();
-      }
-    )
-    .subscribe();
-
-  const vocsChannel = supabase
-    .channel("vocs-realtime")
-    .on(
-      "postgres_changes",
-      { event: "*", schema: "public", table: "vocs" },
-      () => {
-        loadVocs();
-      }
-    )
-    .subscribe();
-
-  return () => {
-    supabase.removeChannel(worksChannel);
-    supabase.removeChannel(vocsChannel);
-  };
-}, []);
   const startEditWork = (work) => {
     setEditingWorkId(work.id);
     setWorkDate(work.workDate);
