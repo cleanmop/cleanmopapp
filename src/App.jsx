@@ -152,10 +152,7 @@ const [vocMemo, setVocMemo] = useState("");
     const finalCodeName =
   currentUser?.role === "manager" ? currentUser.name : codeName;
 
-const finalVisitManagers =
-  currentUser?.role === "manager"
-    ? [currentUser.name]
-    : visitManagers;
+const finalVisitManagers = visitManagers;
 
     const newWork = {
   id: editingWorkId || Date.now(),
