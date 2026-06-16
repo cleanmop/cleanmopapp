@@ -1035,7 +1035,9 @@ setLoginPassword("");
               <div key={manager} style={{ border: "1px solid #ccc", padding: "10px", marginBottom: "10px" }}>
                 <h3>{index + 1}위. {manager}</h3>
                 {Object.entries(data.details).map(([itemName, detail]) => (
-                  <p key={itemName}>{itemName} {detail.count}대 : {detail.amount.toLocaleString()}원</p>
+                  <p key={itemName}><p>
+  {itemName} : {detail.count.toFixed(1)}대
+</p> : {detail.amount.toLocaleString()}원</p>
                 ))}
                 <strong>합계: {data.total.toLocaleString()}원</strong>
               </div>
