@@ -67,9 +67,7 @@ function App() {
   const [codeName, setCodeName] = useState("없음");
   const [workType, setWorkType] = useState("solo");
   const [teamCount, setTeamCount] = useState(2);
-  const [visitManager1, setVisitManager1] = useState("");
-  const [visitManager2, setVisitManager2] = useState("없음");
-  const [visitManager3, setVisitManager3] = useState("없음");
+  const [visitManagers, setVisitManagers] = useState(Array(10).fill("없음"));
   const [items, setItems] = useState(Object.fromEntries(itemList.map((item) => [item, 0])));
 
   const [vocs, setVocs] = useState([]);
@@ -81,10 +79,17 @@ const [vocLevel, setVocLevel] = useState("minor");
 const [vocMemo, setVocMemo] = useState("");
 
   useEffect(() => {
+  const savedUser = localStorage.getItem("currentUser");
+
+  if (savedUser) {
+    const user = JSON.parse(savedUser);
+    setCurrentUser(user);
+    setSelectedManager(user.name);
+  }
+
   loadWorks();
   loadVocs();
   loadUsers();
-  loadMonthLocks();
 }, []);
   
   const monthlyWorks = works.filter((work) => work.workDate.startsWith(selectedMonth));
@@ -131,12 +136,12 @@ const [vocMemo, setVocMemo] = useState("");
 }
     if (!visitManager1) return alert("방문매니저1을 선택하세요.");
 
-    const visitManagers =
-      workType === "solo"
-        ? [visitManager1].filter((name) => name)
-        : [visitManager1, visitManager2, visitManager3]
-            .slice(0, teamCount)
-            .filter((name) => name && name !== "없음");
+    const selectedManagers =
+  workType === "solo"
+    ? [visitManagers[0]].filter((name) => name && name !== "없음")
+    : visitManagers
+        .slice(0, teamCount)
+        .filter((name) => name && name !== "없음");
 
     if (workType === "solo" && visitManagers.length !== 1) {
       return alert("혼자 작업은 방문매니저 1명만 선택하세요.");
@@ -161,7 +166,7 @@ const finalVisitManagers = visitManagers;
   codeName: finalCodeName,
   workType,
   teamCount: finalVisitManagers.length,
-  visitManagers: finalVisitManagers,
+  visitManagers: selectedManagers,
   items,
 };
     const dbWork = {
@@ -387,9 +392,13 @@ const unlockMonth = async () => {
     setTeamCount(work.teamCount || (work.visitManagers?.length || 1));
 
     const managers = work.visitManagers || [];
-    setVisitManager1(managers[0] || "");
-    setVisitManager2(managers[1] || "없음");
-    setVisitManager3(managers[2] || "없음");
+    const tempManagers = Array(10).fill("없음");
+
+managers.forEach((name, index) => {
+  tempManagers[index] = name;
+});
+
+setVisitManagers(tempManagers);
     setItems(work.items);
     setPage("workAdd");
   };
@@ -417,7 +426,9 @@ const unlockMonth = async () => {
         Object.entries(work.items).forEach(([itemName, count]) => {
           if (count > 0) {
             const unitPay = allowance[itemName] || 0;
-            const pay = (unitPay * count) / peopleCount;
+            const pay = Math.floor(
+  (unitPay * count) / peopleCount
+);
 
             if (!result[manager].details[itemName]) {
               result[manager].details[itemName] = { count: 0, amount: 0 };
@@ -766,8 +777,10 @@ const getManagerSummary = (managerName) => {
         }
 
         setCurrentUser(selected);
-        setSelectedManager(selected.name);
-        setLoginPassword("");
+localStorage.setItem("currentUser", JSON.stringify(selected));
+
+setSelectedManager(selected.name);
+setLoginPassword("");
       }}
     >
       로그인
@@ -778,6 +791,7 @@ const getManagerSummary = (managerName) => {
     <button
   onClick={() => {
     setCurrentUser(null);
+    localStorage.removeItem("currentUser");
     setLoginName("");
     setLoginPassword("");
     setPage("home");
@@ -862,6 +876,26 @@ const getManagerSummary = (managerName) => {
 
       {page === "workAdd" && (
         <>
+          <div
+  style={{
+    position: "sticky",
+    top: 0,
+    backgroundColor: "white",
+    padding: "10px",
+    borderBottom: "1px solid #ddd",
+    zIndex: 999,
+  }}
+>
+  <button onClick={saveWork}>
+    {editingWorkId ? "수정 저장" : "저장"}
+  </button>
+
+  {" "}
+
+  <button onClick={() => setPage("home")}>
+    메뉴
+  </button>
+</div>
           <h2>{editingWorkId ? "작업 수정" : "작업 등록"}</h2>
 
           <label>작업일</label><br />
@@ -898,43 +932,45 @@ const getManagerSummary = (managerName) => {
             <>
               <label>동행인원</label><br />
               <select value={teamCount} onChange={(e) => setTeamCount(Number(e.target.value))}>
-                <option value={2}>2명</option>
-                <option value={3}>3명</option>
-              </select><br /><br />
+  {Array.from({ length: 9 }, (_, i) => i + 2).map((num) => (
+    <option key={num} value={num}>
+      {num}명
+    </option>
+  ))}
+</select><br /><br />
             </>
           )}
 
-          <label>방문매니저1</label><br />
-          <select value={visitManager1} onChange={(e) => setVisitManager1(e.target.value)}>
-            <option value="">선택</option>
-            {managerList.filter((name) => name !== "없음").map((name) => (
-              <option key={name} value={name}>{name}</option>
-            ))}
-          </select><br /><br />
+          {Array.from({
+  length: workType === "solo" ? 1 : teamCount,
+}).map((_, index) => (
+  <div key={index}>
+    <label>방문매니저 {index + 1}</label>
+    <br />
 
-          {workType === "team" && teamCount >= 2 && (
-            <>
-              <label>방문매니저2</label><br />
-              <select value={visitManager2} onChange={(e) => setVisitManager2(e.target.value)}>
-                <option value="없음">선택</option>
-                {managerList.filter((name) => name !== "없음").map((name) => (
-                  <option key={name} value={name}>{name}</option>
-                ))}
-              </select><br /><br />
-            </>
-          )}
+    <select
+      value={visitManagers[index]}
+      onChange={(e) => {
+        const updated = [...visitManagers];
+        updated[index] = e.target.value;
+        setVisitManagers(updated);
+      }}
+    >
+      <option value="없음">선택</option>
 
-          {workType === "team" && teamCount >= 3 && (
-            <>
-              <label>방문매니저3</label><br />
-              <select value={visitManager3} onChange={(e) => setVisitManager3(e.target.value)}>
-                <option value="없음">선택</option>
-                {managerList.filter((name) => name !== "없음").map((name) => (
-                  <option key={name} value={name}>{name}</option>
-                ))}
-              </select><br /><br />
-            </>
-          )}
+      {managerList
+        .filter((name) => name !== "없음")
+        .map((name) => (
+          <option key={name} value={name}>
+            {name}
+          </option>
+        ))}
+    </select>
+
+    <br />
+    <br />
+  </div>
+))}
 
           <hr />
           <h3>품목 수량</h3>
