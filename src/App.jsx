@@ -273,51 +273,6 @@ if (editingWorkId) {
     return;
   }
   
-  useEffect(() => {
-  const handlePopState = () => {
-    if (page !== "home") {
-      setPage("home");
-      window.history.pushState(null, "", window.location.pathname);
-      return;
-    }
-
-    if (!backPressed) {
-      setBackPressed(true);
-
-      alert("한 번 더 누르면 종료됩니다.");
-
-      setTimeout(() => {
-        setBackPressed(false);
-      }, 2000);
-
-      window.history.pushState(
-        null,
-        "",
-        window.location.pathname
-      );
-    } else {
-      window.history.back();
-    }
-  };
-
-  window.history.pushState(
-    null,
-    "",
-    window.location.pathname
-  );
-
-  window.addEventListener(
-    "popstate",
-    handlePopState
-  );
-
-  return () =>
-    window.removeEventListener(
-      "popstate",
-      handlePopState
-    );
-}, [page, backPressed]);
-
   const converted = (data || []).map((work) => ({
     id: work.id,
     workDate: work.work_date,
@@ -827,6 +782,34 @@ const getManagerSummary = (managerName) => {
     XLSX.utils.book_append_sheet(workbook, worksheet, "정산서");
     XLSX.writeFile(workbook, `클린맙_${selectedMonth}_정산서.xlsx`);
   };
+
+  useEffect(() => {
+  const handlePopState = () => {
+    if (page !== "home") {
+      setPage("home");
+      window.history.pushState(null, "", window.location.pathname);
+      return;
+    }
+
+    if (!backPressed) {
+      setBackPressed(true);
+      alert("한 번 더 누르면 종료됩니다.");
+
+      setTimeout(() => {
+        setBackPressed(false);
+      }, 2000);
+
+      window.history.pushState(null, "", window.location.pathname);
+    }
+  };
+
+  window.history.pushState(null, "", window.location.pathname);
+  window.addEventListener("popstate", handlePopState);
+
+  return () => {
+    window.removeEventListener("popstate", handlePopState);
+  };
+}, [page, backPressed]);
 
   return (
     <div style={{ padding: "20px" }}>
