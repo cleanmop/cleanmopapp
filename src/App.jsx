@@ -3,6 +3,58 @@ import { useEffect, useState } from "react";
 import * as XLSX from "xlsx";
 
 function App() {
+
+  const theme = {
+  primary: "#0B5CFF",
+  primaryDark: "#0047D6",
+  background: "#F4F6FA",
+  card: "#FFFFFF",
+};
+
+  const ui = {
+  pageTitle: {
+    fontSize: "28px",
+    fontWeight: "700",
+    marginBottom: "20px",
+  },
+
+  userCard: {
+    background: "#fff",
+    borderRadius: "16px",
+    padding: "15px",
+    marginBottom: "20px",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+  },
+
+  menuGrid: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: "12px",
+  },
+
+  menuCard: {
+    background: "#fff",
+    border: "none",
+    borderRadius: "16px",
+    padding: "20px",
+    textAlign: "center",
+    fontSize: "16px",
+    fontWeight: "600",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+    cursor: "pointer",
+  },
+
+  logoutBtn: {
+    marginTop: "10px",
+    width: "100%",
+    padding: "10px",
+    borderRadius: "10px",
+    border: "none",
+    background: "#ef4444",
+    color: "#fff",
+  },
+};
+
   const managerList = [
     "없음", "이상현", "김동완", "김성민", "고재경", "김주덕",
     "조용화", "정철진", "송병훈", "임정은", "여원현", "김상민",
@@ -59,6 +111,7 @@ function App() {
   const [lockedMonths, setLockedMonths] = useState([]);
   const [selectedManager, setSelectedManager] = useState("전체");
   const [editingWorkId, setEditingWorkId] = useState(null);
+  const [backPressed, setBackPressed] = useState(false);
 
   const [works, setWorks] = useState([]);
 
@@ -220,6 +273,51 @@ if (editingWorkId) {
     return;
   }
   
+  useEffect(() => {
+  const handlePopState = () => {
+    if (page !== "home") {
+      setPage("home");
+      window.history.pushState(null, "", window.location.pathname);
+      return;
+    }
+
+    if (!backPressed) {
+      setBackPressed(true);
+
+      alert("한 번 더 누르면 종료됩니다.");
+
+      setTimeout(() => {
+        setBackPressed(false);
+      }, 2000);
+
+      window.history.pushState(
+        null,
+        "",
+        window.location.pathname
+      );
+    } else {
+      window.history.back();
+    }
+  };
+
+  window.history.pushState(
+    null,
+    "",
+    window.location.pathname
+  );
+
+  window.addEventListener(
+    "popstate",
+    handlePopState
+  );
+
+  return () =>
+    window.removeEventListener(
+      "popstate",
+      handlePopState
+    );
+}, [page, backPressed]);
+
   const converted = (data || []).map((work) => ({
     id: work.id,
     workDate: work.work_date,
@@ -578,7 +676,7 @@ setPage("home");
 
 const addUser = async () => {
   if (!newUserName) {
-    alert("기사명을 입력하세요.");
+    alert("매니저명을 입력하세요.");
     return;
   }
 
@@ -601,7 +699,7 @@ const addUser = async () => {
   await loadUsers();
 
   setNewUserName("");
-  alert("기사가 추가되었습니다.");
+  alert("매니저가 추가되었습니다.");
 };
 
 const resetUserPassword = async (id) => {
@@ -623,7 +721,7 @@ const resetUserPassword = async (id) => {
 };
 
 const deleteUser = async (id) => {
-  if (!confirm("기사를 삭제할까요?")) return;
+  if (!confirm("매니저를 삭제할까요?")) return;
 
   const { error } = await supabase
     .from("users")
@@ -732,8 +830,6 @@ const getManagerSummary = (managerName) => {
 
   return (
     <div style={{ padding: "20px" }}>
-      <h1>클린맙 업무관리 시스템</h1>
-      <hr />
       {!currentUser ? (
   <>
     <h2>로그인</h2>
@@ -784,9 +880,66 @@ setLoginPassword("");
       로그인
     </button>
   </>
-) : (
+) : null}
 
-    <button
+{page === "home" && currentUser && (
+  <>
+    <div
+      style={{
+        background: "linear-gradient(135deg, #0B5CFF, #0047D6)",
+        color: "white",
+        borderRadius: "0 0 34px 34px",
+        padding: "32px 20px 42px",
+        margin: "-20px -20px 20px",
+        textAlign: "center",
+      }}
+    >
+      <h1 style={{ margin: 0, fontSize: "26px", color:"white" }}>
+        클린맙 업무관리 시스템
+      </h1>
+      <p style={{ margin: "8px 0 0", opacity: 0.9 }}>
+        Cleanmop Management System
+      </p>
+    </div>
+
+    <div
+      style={{
+        background: "white",
+        borderRadius: "22px",
+        padding: "18px",
+        marginTop: "-45px",
+        marginBottom: "18px",
+        boxShadow: "0 4px 16px rgba(0,0,0,0.10)",
+        display: "flex",
+        alignItems: "center",
+        gap: "14px",
+      }}
+    >
+      <div
+        style={{
+          width: "58px",
+          height: "58px",
+          borderRadius: "50%",
+          background: "#0B5CFF",
+          color: "white",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: "28px",
+        }}
+      >
+        👤
+      </div>
+
+      <div>
+        <div style={{ fontSize: "20px", fontWeight: "700" }}>
+          {currentUser.name}님
+        </div>
+        <div style={{ color: "#666", marginTop: "4px" }}>
+          {currentUser.role === "admin" ? "관리자" : "매니저"}
+        </div>
+      </div>
+      <button
   onClick={() => {
     setCurrentUser(null);
     localStorage.removeItem("currentUser");
@@ -794,81 +947,103 @@ setLoginPassword("");
     setLoginPassword("");
     setPage("home");
   }}
+  style={{
+    marginTop: "10px",
+    border: "none",
+    borderRadius: "10px",
+    padding: "8px 12px",
+    background: "#ef4444",
+    color: "white",
+  }}
 >
   로그아웃
 </button>
-  
-)}
-
-      {page === "home" && currentUser && (
-  <>
-    <h2>메뉴</h2>
-    {currentUser?.role === "manager" && (
-  <div
-    style={{
-      border: "1px solid #999",
-      padding: "10px",
-      marginBottom: "15px",
-      backgroundColor: "#f7f7f7",
-    }}
-  >
-    <h3>{currentUser.name}님 이번달 요약</h3>
-
-    <p>
-      작업건수:{" "}
-      {getManagerSummary(currentUser.name).workCount}건
-    </p>
-
-    <p>
-      예상정산:{" "}
-      {getManagerSummary(currentUser.name).totalPay.toLocaleString()}원
-    </p>
-
-    <p>
-      VOC: {getManagerSummary(currentUser.name).vocCount}건
-    </p>
-
-    <p>
-      기사점수: {getManagerSummary(currentUser.name).score}점
-    </p>
-  </div>
-)}    
-    {currentUser.role === "admin" && (
-      <>
-        <button onClick={() => setPage("workAdd")}>작업 등록</button><br /><br />
-        <button onClick={() => setPage("workList")}>작업 조회</button><br /><br />
-        <button onClick={() => setPage("settlement")}>정산 조회</button><br /><br />
-        <button onClick={() => setPage("managerStats")}>기사별 대시보드</button><br /><br />
-        <button onClick={() => setPage("vocAdd")}>VOC 등록</button><br /><br />
-        <button onClick={() => setPage("vocList")}>VOC 조회</button><br /><br />
-        <button onClick={() => setPage("companyStats")}>업체별 실적</button><br /><br />
-        <button onClick={() => setPage("changePassword")}>비밀번호 변경</button><br /><br />
-        <button onClick={() => setPage("userManage")}>기사 관리</button><br /><br />
-        <button onClick={() => setPage("monthLock")}>월마감</button><br /><br />
-        </>
-    )}
+    </div>
 
     {currentUser.role === "manager" && (
-      <>
-        <button
-          onClick={() => {
-            setSelectedManager(currentUser.name);
-            setPage("managerStats");
+      <div
+        style={{
+          background: "white",
+          borderRadius: "22px",
+          padding: "18px",
+          marginBottom: "18px",
+          boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+        }}
+      >
+        <h3 style={{ marginTop: 0 }}>
+          이번달 현황
+        </h3>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: "10px",
           }}
         >
-          내 대시보드
-        </button>
-        <br /><br />
-        <button onClick={() => setPage("workAdd")}>작업 등록</button><br /><br />
+          <div style={{ background: "#F4F7FF", borderRadius: "16px", padding: "14px", textAlign: "center" }}>
+            <div style={{ fontSize: "22px", fontWeight: "800", color: "#0B5CFF" }}>
+              {getManagerSummary(currentUser.name).workCount}
+            </div>
+            <div>작업 건수</div>
+          </div>
 
-        <button onClick={() => setPage("workList")}>내 작업 조회</button>
-        <br /><br />
+          <div style={{ background: "#F4F7FF", borderRadius: "16px", padding: "14px", textAlign: "center" }}>
+            <div style={{ fontSize: "22px", fontWeight: "800", color: "#0B5CFF" }}>
+              {getManagerSummary(currentUser.name).vocCount}
+            </div>
+            <div>VOC 건수</div>
+          </div>
 
-        <button onClick={() => setPage("vocList")}>내 VOC 조회</button>
-        <br /><br />
-        <button onClick={() => setPage("changePassword")}>비밀번호 변경</button><br /><br />
-      </>
+          <div style={{ background: "#F4F7FF", borderRadius: "16px", padding: "14px", textAlign: "center" }}>
+            <div style={{ fontSize: "18px", fontWeight: "800", color: "#0B5CFF" }}>
+              {getManagerSummary(currentUser.name).totalPay.toLocaleString()}
+            </div>
+            <div>예상 정산금</div>
+          </div>
+
+          <div style={{ background: "#F4F7FF", borderRadius: "16px", padding: "14px", textAlign: "center" }}>
+            <div style={{ fontSize: "22px", fontWeight: "800", color: "#0B5CFF" }}>
+              {getManagerSummary(currentUser.name).score}
+            </div>
+            <div>매니저 점수</div>
+          </div>
+        </div>
+      </div>
     )}
+
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "1fr 1fr",
+        gap: "14px",
+      }}
+    >
+      {currentUser.role === "admin" && (
+        <>
+          <button style={ui.menuCard} onClick={() => setPage("workAdd")}>📋<br />작업 등록</button>
+          <button style={ui.menuCard} onClick={() => setPage("workList")}>📂<br />작업 조회</button>
+          <button style={ui.menuCard} onClick={() => setPage("settlement")}>💰<br />정산 조회</button>
+          <button style={ui.menuCard} onClick={() => setPage("managerStats")}>📊<br />매니저 대시보드</button>
+          <button style={ui.menuCard} onClick={() => setPage("vocAdd")}>⚠️<br />VOC 등록</button>
+          <button style={ui.menuCard} onClick={() => setPage("vocList")}>📝<br />VOC 조회</button>
+          <button style={ui.menuCard} onClick={() => setPage("companyStats")}>🏢<br />업체별 실적</button>
+          <button style={ui.menuCard} onClick={() => setPage("userManage")}>👥<br />매니저 관리</button>
+          <button style={ui.menuCard} onClick={() => setPage("monthLock")}>🔒<br />월마감</button>
+          <button style={ui.menuCard} onClick={() => setPage("changePassword")}>🔑<br />비밀번호 변경</button>
+        </>
+      )}
+
+      {currentUser.role === "manager" && (
+        <>
+          <button style={ui.menuCard} onClick={() => { setSelectedManager(currentUser.name); setPage("managerStats"); }}>📊<br />내 대시보드</button>
+          <button style={ui.menuCard} onClick={() => setPage("workAdd")}>📋<br />작업 등록</button>
+          <button style={ui.menuCard} onClick={() => setPage("workList")}>📂<br />내 작업 조회</button>
+          <button style={ui.menuCard} onClick={() => setPage("vocList")}>⚠️<br />내 VOC 조회</button>
+          <button style={ui.menuCard} onClick={() => setPage("changePassword")}>🔑<br />비밀번호 변경</button>
+        </>
+      )}
+    </div>
   </>
 )}
 
@@ -1049,7 +1224,7 @@ setLoginPassword("");
 
       {page === "managerStats" && (
         <>
-          <h2>기사별 대시보드</h2>
+          <h2>매니저별 대시보드</h2>
           <button onClick={downloadSettlementExcel}>엑셀 다운로드</button><br /><br />
 
           <label>조회월</label><br />
@@ -1057,7 +1232,7 @@ setLoginPassword("");
 
           {currentUser?.role === "admin" && (
   <>
-    <label>기사 선택</label><br />
+    <label>매니저 선택</label><br />
 
     <select
       value={selectedManager}
@@ -1089,7 +1264,7 @@ setLoginPassword("");
                 <div key={data.manager} style={{ border: "1px solid #ccc", padding: "10px", marginBottom: "10px" }}>
                   <h3>{index + 1}위. {data.manager}</h3>
                   <p>VOC: {getManagerVocs(data.manager).length}건</p>
-<p>기사점수: {calculateManagerScore(data.manager)}점</p>
+<p>매니저점수: {calculateManagerScore(data.manager)}점</p>
 
 {getManagerVocs(data.manager).length > 0 && (
   <>
@@ -1270,12 +1445,12 @@ setLoginPassword("");
 
           {page === "userManage" && (
   <>
-    <h2>기사 관리</h2>
+    <h2>매니저 관리</h2>
 
     <input
       value={newUserName}
       onChange={(e) => setNewUserName(e.target.value)}
-      placeholder="기사명"
+      placeholder="매니저명"
     />
 
     <br /><br />
@@ -1292,7 +1467,7 @@ setLoginPassword("");
     <br /><br />
 
     <button onClick={addUser}>
-      기사 추가
+      매니저 추가
     </button>
 
     <hr />
