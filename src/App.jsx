@@ -32,17 +32,17 @@ function App() {
     gap: "12px",
   },
 
-  menuCard: {
-    background: "#fff",
-    border: "none",
-    borderRadius: "16px",
-    padding: "20px",
-    textAlign: "center",
-    fontSize: "16px",
-    fontWeight: "600",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-    cursor: "pointer",
-  },
+ menuCard: {
+  background: "#fff",
+  color: "#111827",
+  border: "none",
+  borderRadius: "22px",
+  padding: "24px 12px",
+  minHeight: "105px",
+  fontSize: "16px",
+  fontWeight: "700",
+  boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+},
 
   logoutBtn: {
     marginTop: "10px",
@@ -53,6 +53,21 @@ function App() {
     background: "#ef4444",
     color: "#fff",
   },
+
+  sectionCard: {
+  background: "#fff",
+  borderRadius: "20px",
+  padding: "16px",
+  marginBottom: "16px",
+  boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+},
+
+sectionTitle: {
+  fontSize: "18px",
+  fontWeight: "700",
+  marginBottom: "12px",
+  color: "#0B5CFF",
+},
 };
 
   const managerList = [
@@ -1054,6 +1069,10 @@ setLoginPassword("");
 </div>
           <h2>{editingWorkId ? "작업 수정" : "작업 등록"}</h2>
 
+           <div style={ui.sectionCard}>
+  <div style={ui.sectionTitle}>
+    📋 기본정보
+  </div> 
           <label>작업일</label><br />
           <input type="date" value={workDate} onChange={(e) => setWorkDate(e.target.value)} /><br /><br />
 
@@ -1069,7 +1088,12 @@ setLoginPassword("");
           <select value={codeName} onChange={(e) => setCodeName(e.target.value)}>
             {managerList.map((name) => <option key={name} value={name}>{name}</option>)}
           </select><br /><br />
-
+          </div>
+          
+          <div style={ui.sectionCard}>
+  <div style={ui.sectionTitle}>
+    👥 작업자 정보
+  </div>
           <label>작업구분</label><br />
           <select
             value={workType}
@@ -1127,20 +1151,57 @@ setLoginPassword("");
   </div>
 ))}
 
-          <hr />
-          <h3>품목 수량</h3>
+</div>
+<div style={ui.sectionCard}>
+  <div style={ui.sectionTitle}>
+    🛠 품목 입력
+  </div>
 
-          {itemList.map((item) => (
-            <div key={item} style={{ marginBottom: "12px" }}>
-              <label>{item}</label><br />
-              <input type="number" min="0" value={items[item]} onChange={(e) => changeItemCount(item, e.target.value)} />
-            </div>
-          ))}
+  <div
+    style={{
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr",
+      gap: "12px",
+    }}
+  >
+    {itemList.map((item) => (
+      <div
+        key={item}
+        style={{
+          background: "#f8f9fb",
+          padding: "10px",
+          borderRadius: "12px",
+        }}
+      >
+        <label>{item}</label>
 
-          <button onClick={saveWork}>{editingWorkId ? "수정 저장" : "저장"}</button><br /><br />
-          <button onClick={() => setPage("home")}>← 메뉴로 돌아가기</button>
-        </>
-      )}
+        <input
+          type="number"
+          min="0"
+          value={items[item]}
+          onChange={(e) =>
+            changeItemCount(item, e.target.value)
+          }
+          style={{
+            width: "100%",
+            marginTop: "6px",
+          }}
+        />
+      </div>
+    ))}
+  </div>
+</div>
+
+<button onClick={saveWork}>
+  {editingWorkId ? "수정 저장" : "저장"}
+</button>
+<br /><br />
+
+<button onClick={() => setPage("home")}>
+  ← 메뉴로 돌아가기
+</button>
+</>
+)}
 
       {page === "workList" && (
         <>
