@@ -105,6 +105,9 @@ formInput: {
   padding: "0 8px",
   background: "#fff",
   boxSizing: "border-box",
+  color: "#111827",
+WebkitTextFillColor: "#111827",
+appearance: "auto",
 },
 };
 
@@ -1189,29 +1192,33 @@ setLoginPassword("");
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
               <strong>{currentUser.name}</strong>
-              <button
-                onClick={() => {
-                  setCurrentUser(null);
-                  localStorage.removeItem("currentUser");
-                  setLoginName("");
-                  setLoginPassword("");
-                  setPage("home");
-                }}
-                style={{
-                  border: "none",
-                  background: "#ef4444",
-                  color: "white",
-                  fontSize: "11px",
-                  padding: "4px 7px",
-                  borderRadius: "8px",
-                }}
-              >
-                로그아웃
-              </button>
+
+<div style={{ color: "#666", fontSize: "13px" }}>
+  {currentUser.role === "admin" ? "관리자" : "매니저"}
+</div>
+
+<button
+  onClick={() => {
+    setCurrentUser(null);
+    localStorage.removeItem("currentUser");
+    setLoginName("");
+    setLoginPassword("");
+    setPage("home");
+  }}
+  style={{
+    marginTop: "6px",
+    border: "none",
+    background: "#ef4444",
+    color: "white",
+    fontSize: "11px",
+    padding: "4px 8px",
+    borderRadius: "8px",
+  }}
+>
+  로그아웃
+</button>
             </div>
-            <div style={{ color: "#666", fontSize: "13px" }}>
-              {currentUser.role === "admin" ? "관리자" : "매니저"}
-            </div>
+            
           </div>
         </div>
 
@@ -1476,7 +1483,16 @@ setLoginPassword("");
           background: "#fff",
         }}
       >
-        <span>{item}</span>
+        <span
+  style={{
+    fontSize: "13px",
+    lineHeight: "1.2",
+    color: "#64748B",
+    wordBreak: "keep-all",
+  }}
+>
+  {item}
+</span>
 
         <input
           type="number"
@@ -1486,9 +1502,13 @@ setLoginPassword("");
             changeItemCount(item, e.target.value)
           }
           style={{
-            width: "60px",
-            textAlign: "center",
-          }}
+  width: "46px",
+  height: "28px",
+  textAlign: "center",
+  fontSize: "13px",
+  color: "#111827",
+  WebkitTextFillColor: "#111827",
+}}
         />
       </div>
     ))}
@@ -1520,7 +1540,16 @@ setLoginPassword("");
           background: "#fff",
         }}
       >
-        <span>{item}</span>
+        <span
+  style={{
+    fontSize: "13px",
+    lineHeight: "1.2",
+    color: "#64748B",
+    wordBreak: "keep-all",
+  }}
+>
+  {item}
+</span>
 
         <input
           type="number"
@@ -1530,9 +1559,13 @@ setLoginPassword("");
             changeItemCount(item, e.target.value)
           }
           style={{
-            width: "60px",
-            textAlign: "center",
-          }}
+  width: "46px",
+  height: "28px",
+  textAlign: "center",
+  fontSize: "13px",
+  color: "#111827",
+  WebkitTextFillColor: "#111827",
+}}
         />
       </div>
     ))}
@@ -1564,7 +1597,16 @@ setLoginPassword("");
           background: "#fff",
         }}
       >
-        <span>{item}</span>
+        <span
+  style={{
+    fontSize: "13px",
+    lineHeight: "1.2",
+    color: "#64748B",
+    wordBreak: "keep-all",
+  }}
+>
+  {item}
+</span>
 
         <input
           type="number"
@@ -1574,9 +1616,13 @@ setLoginPassword("");
             changeItemCount(item, e.target.value)
           }
           style={{
-            width: "60px",
-            textAlign: "center",
-          }}
+  width: "46px",
+  height: "28px",
+  textAlign: "center",
+  fontSize: "13px",
+  color: "#111827",
+  WebkitTextFillColor: "#111827",
+}}
         />
       </div>
     ))}
@@ -1606,7 +1652,16 @@ setLoginPassword("");
           background: "#fff",
         }}
       >
-        <span>{item}</span>
+        <span
+  style={{
+    fontSize: "13px",
+    lineHeight: "1.2",
+    color: "#64748B",
+    wordBreak: "keep-all",
+  }}
+>
+  {item}
+</span>
 
         <input
           type="number"
@@ -1616,9 +1671,13 @@ setLoginPassword("");
             changeItemCount(item, e.target.value)
           }
           style={{
-            width: "60px",
-            textAlign: "center",
-          }}
+  width: "46px",
+  height: "28px",
+  textAlign: "center",
+  fontSize: "13px",
+  color: "#111827",
+  WebkitTextFillColor: "#111827",
+}}
         />
       </div>
     ))}
