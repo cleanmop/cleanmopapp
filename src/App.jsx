@@ -1576,8 +1576,16 @@ setLoginPassword("");
   height: "28px",
   textAlign: "center",
   fontSize: "13px",
+
+  backgroundColor: "#ffffff",
   color: "#111827",
   WebkitTextFillColor: "#111827",
+
+  border: "1px solid #dbe3ef",
+  borderRadius: "6px",
+
+  appearance: "none",
+  WebkitAppearance: "none",
 }}
         />
       </div>
@@ -1633,8 +1641,16 @@ setLoginPassword("");
   height: "28px",
   textAlign: "center",
   fontSize: "13px",
+
+  backgroundColor: "#ffffff",
   color: "#111827",
   WebkitTextFillColor: "#111827",
+
+  border: "1px solid #dbe3ef",
+  borderRadius: "6px",
+
+  appearance: "none",
+  WebkitAppearance: "none",
 }}
         />
       </div>
@@ -1688,8 +1704,16 @@ setLoginPassword("");
   height: "28px",
   textAlign: "center",
   fontSize: "13px",
+
+  backgroundColor: "#ffffff",
   color: "#111827",
   WebkitTextFillColor: "#111827",
+
+  border: "1px solid #dbe3ef",
+  borderRadius: "6px",
+
+  appearance: "none",
+  WebkitAppearance: "none",
 }}
         />
       </div>
