@@ -122,10 +122,14 @@ appearance: "auto",
     "벽걸이", "스탠드", "1웨이", "4웨이", "홈멀티",
     "드럼", "드럼 19k ↓", "드럼2단", "통돌이", "통돌이 19k ↓",
     "아기사랑", "빌트인", "초음파드럼", "초음파통돌이",
-    "양문형", "4도어", "일반", "빌트인",
+    "양문형", "4도어", "일반", "빌트인냉장고",
     "김치 스탠드", "김치 4도어",
     "김치 뚜껑식", "김치 빌트인", "방문취소",
   ];
+  const [itemListState, setItemListState] = useState(itemList);
+
+  const [newItem, setNewItem] = useState("");
+
   const airconItems = [
   "벽걸이",
   "스탠드",
@@ -149,7 +153,7 @@ const fridgeItems = [
   "양문형",
   "4도어",
   "일반",
-  "빌트인",
+  "빌트인냉장고",
   "김치 스탠드",
   "김치 4도어",
   "김치 뚜껑식",
@@ -289,6 +293,17 @@ const [vocMemo, setVocMemo] = useState("");
   const changeItemCount = (itemName, value) => {
     setItems({ ...items, [itemName]: Number(value) });
   };
+
+  const addItem = () => {
+  if (!newItem) return;
+
+  setItemListState([
+    ...itemListState,
+    newItem
+  ]);
+
+  setNewItem("");
+};
 
   const resetForm = () => {
     setWorkDate("");
@@ -457,20 +472,6 @@ const loadVocs = async () => {
     console.error(error);
     return;
   }
-
-  const loadUsers = async () => {
-  const { data, error } = await supabase
-    .from("users")
-    .select("*")
-    .order("name");
-
-  if (error) {
-    console.error(error);
-    return;
-  }
-
-  setUsers(data || []);
-};
 
   const converted = (data || []).map((voc) => ({
     id: voc.id,
@@ -1030,7 +1031,7 @@ const getManagerSummary = (managerName) => {
             정산월: selectedMonth,
             매니저: data.manager,
             품목: itemName,
-            수량: detail.count,
+            수량: detail.count.toFixed(1),
             금액: Math.round(detail.amount),
           });
         });
@@ -1274,6 +1275,7 @@ setLoginPassword("");
           <button style={ui.menuCard} onClick={() => setPage("companyStats")}>🏢<br />업체별 실적</button>
           <button style={ui.menuCard} onClick={() => setPage("userManage")}>👥<br />매니저 관리</button>
           <button style={ui.menuCard} onClick={() => setPage("monthLock")}>🔒<br />월마감</button>
+          <button style={ui.menuCard} onClick={() => setPage("itemManage")}>🧩<br />품목관리</button>
           <button style={ui.menuCard} onClick={() => setPage("changePassword")}>🔑<br />비밀번호 변경</button>
           <button style={ui.menuCard} onClick={() => setPage("contractAdd")}>📑<br />계약건 등록</button>   
           <button style={ui.menuCard} onClick={() => setPage("contractList")}
@@ -1923,7 +1925,9 @@ setLoginPassword("");
 )}
 
                   {Object.entries(data.details).map(([itemName, detail]) => (
-                    <p key={itemName}>{itemName}: {detail.count}대 / {detail.amount.toLocaleString()}원</p>
+                    <p key={itemName}>
+  {itemName}: {detail.count.toFixed(1)}대 / {detail.amount.toLocaleString()}원
+</p>
                   ))}
 
                   <strong>총 정산: {data.total.toLocaleString()}원</strong>
@@ -2072,6 +2076,38 @@ setLoginPassword("");
           </button>
         </>
       )} 
+
+      {page === "itemManage" && (
+  <>
+    <h2>품목 관리</h2>
+
+    <input
+      value={newItem}
+      onChange={(e) =>
+        setNewItem(e.target.value)
+      }
+      placeholder="품목명"
+    />
+
+    <button onClick={addItem}>
+      추가
+    </button>
+
+    <hr />
+
+    {itemListState.map((item, index) => (
+  <div key={`${item}-${index}`}>
+    {item}
+  </div>
+))}
+
+    <button
+      onClick={() => setPage("home")}
+    >
+      돌아가기
+    </button>
+  </>
+)}
 
           {page === "userManage" && (
   <>
