@@ -1062,6 +1062,9 @@ const getManagerSummary = (managerName) => {
   };
 }, [page, backPressed]);
 
+    const isMobile = window.innerWidth < 768;
+
+    
   return (
     <div style={{ padding: "20px" }}>
       {!currentUser ? (
@@ -1308,7 +1311,7 @@ setLoginPassword("");
       <div
   style={{
     display: "grid",
-    gridTemplateColumns: "1fr 1fr 1fr",
+    gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr",
     gap: "12px",
   }}
 >
@@ -1400,7 +1403,7 @@ setLoginPassword("");
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(5, 1fr)",
+          gridTemplateColumns: isMobile ? "repeat(3, 1fr)" : "repeat(5, 1fr)",
           gap: "8px",
           marginTop: "10px",
         }}
@@ -1444,7 +1447,7 @@ setLoginPassword("");
   <div
     style={{
       display: "grid",
-      gridTemplateColumns: "repeat(5, 1fr)",
+      gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(5, 1fr)",
       gap: "10px",
     }}
   >
@@ -1488,7 +1491,7 @@ setLoginPassword("");
   <div
     style={{
       display: "grid",
-      gridTemplateColumns: "repeat(5, 1fr)",
+      gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(5, 1fr)",
       gap: "10px",
     }}
   >
@@ -1532,7 +1535,7 @@ setLoginPassword("");
   <div
     style={{
       display: "grid",
-      gridTemplateColumns: "repeat(5, 1fr)",
+      gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(5, 1fr)",
       gap: "10px",
     }}
   >
@@ -1574,7 +1577,7 @@ setLoginPassword("");
   <div
     style={{
       display: "grid",
-      gridTemplateColumns: "repeat(5, 1fr)",
+      gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(5, 1fr)",
       gap: "10px",
     }}
   >
