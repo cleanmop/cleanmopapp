@@ -4,6 +4,20 @@ import * as XLSX from "xlsx";
 
 function App() {
 
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+    };
+  }, []);
+
   const theme = {
   primary: "#0B5CFF",
   primaryDark: "#0047D6",
@@ -1062,9 +1076,7 @@ const getManagerSummary = (managerName) => {
   };
 }, [page, backPressed]);
 
-    const isMobile = window.innerWidth < 768;
-
-    
+  
   return (
     <div style={{ padding: "20px" }}>
       {!currentUser ? (
