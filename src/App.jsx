@@ -1190,10 +1190,17 @@ setLoginPassword("");
           </div>
 
           <div>
-            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-              <strong>{currentUser.name}</strong>
+  <strong>{currentUser.name}</strong>
 
-
+<div
+  style={{
+    color: "#666",
+    fontSize: "13px",
+    marginTop: "4px",
+  }}
+>
+  {currentUser.role === "admin" ? "관리자" : "매니저"}
+</div>
 
 <button
   onClick={() => {
@@ -1204,25 +1211,23 @@ setLoginPassword("");
     setPage("home");
   }}
   style={{
-    marginTop: "6px",
+    marginTop: "10px",
+    width: "100%",
     border: "none",
     background: "#ef4444",
     color: "white",
-    fontSize: "11px",
-    padding: "4px 8px",
+    fontSize: "12px",
+    padding: "6px 0",
     borderRadius: "8px",
   }}
 >
   로그아웃
 </button>
-            </div>
-            <div style={{ color: "#666", fontSize: "13px" }}>
-  {currentUser.role === "admin" ? "관리자" : "매니저"}
+  </div>
 </div>
-          </div>
-        </div>
-
-        <div
+                    
+          
+              <div
           style={{
             background: "#F4F7FF",
             borderRadius: "16px",
@@ -1506,8 +1511,16 @@ setLoginPassword("");
   height: "28px",
   textAlign: "center",
   fontSize: "13px",
+
+  backgroundColor: "#ffffff",
   color: "#111827",
   WebkitTextFillColor: "#111827",
+
+  border: "1px solid #dbe3ef",
+  borderRadius: "6px",
+
+  appearance: "none",
+  WebkitAppearance: "none",
 }}
         />
       </div>
