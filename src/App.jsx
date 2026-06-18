@@ -1193,9 +1193,7 @@ setLoginPassword("");
             <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
               <strong>{currentUser.name}</strong>
 
-<div style={{ color: "#666", fontSize: "13px" }}>
-  {currentUser.role === "admin" ? "관리자" : "매니저"}
-</div>
+
 
 <button
   onClick={() => {
@@ -1218,7 +1216,9 @@ setLoginPassword("");
   로그아웃
 </button>
             </div>
-            
+            <div style={{ color: "#666", fontSize: "13px" }}>
+  {currentUser.role === "admin" ? "관리자" : "매니저"}
+</div>
           </div>
         </div>
 
