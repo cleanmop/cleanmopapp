@@ -109,18 +109,6 @@ formInput: {
 WebkitTextFillColor: "#111827",
 appearance: "auto",
 },
-
-bottomBtn: {
-  width: "100%",
-  height: "48px",
-  borderRadius: "14px",
-  border: "none",
-  background: "#0B5CFF",
-  color: "white",
-  fontSize: "16px",
-  fontWeight: "800",
-  marginTop: "12px",
-},
 };
 
   const managerList = [
@@ -205,10 +193,6 @@ const etcItems = [
   const [newUserName, setNewUserName] = useState("");
   const [newUserRole, setNewUserRole] = useState("manager");
   const [newUserYear, setNewUserYear] = useState("26");
-  const [newUserSamsungAccount, setNewUserSamsungAccount] = useState("");
-  const [newUserHsAccount, setNewUserHsAccount] = useState("");
-  const [newUserLgAccount, setNewUserLgAccount] = useState("");
-  const [newUserPhone, setNewUserPhone] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [loginName, setLoginName] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
@@ -261,10 +245,6 @@ const etcItems = [
   const [customItems, setCustomItems] = useState([]);
   const [newItemName, setNewItemName] = useState("");
   const [newItemCategory, setNewItemCategory] = useState("aircon");
-  const [newItemPayS, setNewItemPayS] = useState("");
-  const [newItemPayH, setNewItemPayH] = useState("");
-  const [newItemPayC, setNewItemPayC] = useState("");
-  const [newItemPayL, setNewItemPayL] = useState("");
 
   const [vocs, setVocs] = useState([]);
 
@@ -286,20 +266,6 @@ const categoryLabel = {
   washer: "세탁기",
   fridge: "냉장고",
   etc: "기타",
-};
-
-const getCustomItemPay = (itemName, companyCode) => {
-  const customItem = customItems.find((item) => item.name === itemName);
-  if (!customItem) return 0;
-
-  const payMap = {
-    S: customItem.pay_s,
-    H: customItem.pay_h,
-    C: customItem.pay_c,
-    L: customItem.pay_l,
-  };
-
-  return Number(payMap[companyCode] || 0);
 };
 
 const getItemsByCategory = (category) => {
@@ -500,10 +466,6 @@ const addCustomItem = async () => {
       id: Date.now(),
       name: itemName,
       category: newItemCategory,
-      pay_s: Number(newItemPayS || 0),
-      pay_h: Number(newItemPayH || 0),
-      pay_c: Number(newItemPayC || 0),
-      pay_l: Number(newItemPayL || 0),
       sort_order: customItems.length + 1,
       active: true,
     },
@@ -515,10 +477,6 @@ const addCustomItem = async () => {
   }
 
   setNewItemName("");
-  setNewItemPayS("");
-  setNewItemPayH("");
-  setNewItemPayC("");
-  setNewItemPayL("");
   await loadCustomItems();
 
   alert("품목이 추가되었습니다.");
@@ -751,6 +709,8 @@ setVisitManagers(tempManagers);
         const result = {};
 
     monthlyWorks.forEach((work) => {
+      if (work.company === "L") return;
+
       const visitManagers = work.visitManagers || [];
       const peopleCount = visitManagers.length;
       if (peopleCount === 0) return;
@@ -760,7 +720,8 @@ setVisitManagers(tempManagers);
         if (!year) return;
 
         const code = `${year}-${work.company}`;
-        const allowance = allowanceTable[code] || {};
+        const allowance = allowanceTable[code];
+        if (!allowance) return;
 
         if (!result[manager]) {result[manager] = {total: 0,workPay: 0,contractPay: 0,details: {},
   };
@@ -768,7 +729,7 @@ setVisitManagers(tempManagers);
 
         Object.entries(work.items).forEach(([itemName, count]) => {
           if (count > 0) {
-            const unitPay = allowance[itemName] || getCustomItemPay(itemName, work.company) || 0;
+            const unitPay = allowance[itemName] || 0;
             const pay = Math.floor(
   (unitPay * count) / peopleCount
 );
@@ -804,15 +765,6 @@ setVisitManagers(tempManagers);
     if (!result[manager].contractPay) {
       result[manager].contractPay = 0;
     }
-
-    if (!result[manager].details["계약건"]) {
-  result[manager].details["계약건"] = {
-    count: "",
-    amount: 0,
-  };
-}
-
-result[manager].details["계약건"].amount += amount;
 
     result[manager].contractPay += amount;
     result[manager].total += amount;
@@ -1050,7 +1002,6 @@ const updatedUser = {
 };
 
 setCurrentUser(updatedUser);
-localStorage.setItem("currentUser", JSON.stringify(updatedUser));
 
 setUsers(
   users.map((user) =>
@@ -1076,10 +1027,6 @@ const addUser = async () => {
         role: newUserRole,
         year: newUserYear,
         password: "0000",
-        samsung_account: newUserSamsungAccount,
-        hs_account: newUserHsAccount,
-        lg_account: newUserLgAccount,
-        phone: newUserPhone,
       },
     ]);
 
@@ -1091,57 +1038,7 @@ const addUser = async () => {
   await loadUsers();
 
   setNewUserName("");
-  setNewUserSamsungAccount("");
-  setNewUserHsAccount("");
-  setNewUserLgAccount("");
-  setNewUserPhone("");
   alert("매니저가 추가되었습니다.");
-};
-
-const changeUserField = (id, field, value) => {
-  setUsers((prevUsers) =>
-    prevUsers.map((user) =>
-      user.id === id ? { ...user, [field]: value } : user
-    )
-  );
-};
-
-const saveUserInfo = async (user) => {
-  const { error } = await supabase
-    .from("users")
-    .update({
-      name: user.name,
-      role: user.role,
-      year: user.year,
-      samsung_account: user.samsung_account || "",
-      hs_account: user.hs_account || "",
-      lg_account: user.lg_account || "",
-      phone: user.phone || "",
-    })
-    .eq("id", user.id);
-
-  if (error) {
-    alert(JSON.stringify(error));
-    return;
-  }
-
-  if (currentUser?.id === user.id) {
-    const updatedUser = {
-      ...currentUser,
-      name: user.name,
-      role: user.role,
-      year: user.year,
-      samsung_account: user.samsung_account || "",
-      hs_account: user.hs_account || "",
-      lg_account: user.lg_account || "",
-      phone: user.phone || "",
-    };
-    setCurrentUser(updatedUser);
-    localStorage.setItem("currentUser", JSON.stringify(updatedUser));
-  }
-
-  await loadUsers();
-  alert("매니저 정보가 저장되었습니다.");
 };
 
 const resetUserPassword = async (id) => {
@@ -1238,141 +1135,37 @@ const getManagerSummary = (managerName) => {
   };
 };
 
- const downloadSettlementExcel = () => {
-  const rows = [];
+  const downloadSettlementExcel = () => {
+    const rows = [];
 
-  calculateManagerStats()
-    .filter(
-      (data) =>
-        selectedManager === "전체" ||
-        data.manager === selectedManager
-    )
-    .forEach((data) => {
-      Object.entries(data.details || {}).forEach(([itemName, detail]) => {
+    calculateManagerStats()
+      .filter((data) => selectedManager === "전체" || data.manager === selectedManager)
+      .forEach((data) => {
+        Object.entries(data.details).forEach(([itemName, detail]) => {
+          rows.push({
+            정산월: selectedMonth,
+            매니저: data.manager,
+            품목: itemName,
+            수량: detail.count,
+            금액: Math.round(detail.amount),
+          });
+        });
+
         rows.push({
           정산월: selectedMonth,
           매니저: data.manager,
-          품목: displayItemName(itemName),
-          수량:
-            typeof detail.count === "number"
-              ? Number(detail.count.toFixed(1))
-              : "",
-          금액: Math.round(Number(detail.amount || 0)),
+          품목: "합계",
+          수량: "",
+          금액: Math.round(data.total),
         });
       });
 
-      rows.push({
-        정산월: selectedMonth,
-        매니저: data.manager,
-        품목: "합계",
-        수량: "",
-        금액: Math.round(Number(data.total || 0)),
-      });
-    });
-
-  const workbook = XLSX.utils.book_new();
-
-  const worksheet = XLSX.utils.json_to_sheet(rows);
-  worksheet["!cols"] = [
-    { wch: 12 },
-    { wch: 12 },
-    { wch: 24 },
-    { wch: 10 },
-    { wch: 15 },
-  ];
-
-  Object.keys(worksheet).forEach((cell) => {
-    if (cell.startsWith("E")) {
-      if (
-        worksheet[cell].v !== undefined &&
-        typeof worksheet[cell].v === "number"
-      ) {
-        worksheet[cell].z = "#,##0";
-      }
-    }
-  });
-
-  XLSX.utils.book_append_sheet(workbook, worksheet, "정산서");
-
-  const companySummary = {};
-
-  const excelTargetWorks =
-    selectedManager === "전체"
-      ? monthlyWorks
-      : monthlyWorks.filter((work) =>
-          (work.visitManagers || []).includes(selectedManager)
-        );
-
-  excelTargetWorks.forEach((work) => {
-    Object.entries(work.items || {}).forEach(([itemName, count]) => {
-      const itemCount = Number(count || 0);
-      if (itemCount <= 0) return;
-
-      if (!companySummary[itemName]) {
-        companySummary[itemName] = {
-          S: 0,
-          H: 0,
-          C: 0,
-          L: 0,
-        };
-      }
-
-      companySummary[itemName][work.company] += itemCount;
-    });
-  });
-
-  const companyRows = Object.entries(companySummary).map(
-    ([itemName, data]) => ({
-      품목: displayItemName(itemName),
-      삼성: data.S,
-      HS: data.H,
-      클린맙: data.C,
-      LG: data.L,
-      합계: data.S + data.H + data.C + data.L,
-    })
-  );
-
-  const companySheet = XLSX.utils.json_to_sheet(companyRows);
-  companySheet["!cols"] = [
-    { wch: 24 },
-    { wch: 10 },
-    { wch: 10 },
-    { wch: 10 },
-    { wch: 10 },
-    { wch: 10 },
-  ];
-
-  Object.keys(companySheet).forEach((cell) => {
-    if (
-      ["B", "C", "D", "E", "F"].some((col) =>
-        cell.startsWith(col)
-      )
-    ) {
-      if (
-        companySheet[cell].v !== undefined &&
-        typeof companySheet[cell].v === "number"
-      ) {
-        companySheet[cell].z = "#,##0";
-      }
-    }
-  });
-
-  XLSX.utils.book_append_sheet(
-    workbook,
-    companySheet,
-    "업체별실적"
-  );
-
-  const fileName =
-    selectedManager === "전체"
-      ? `${selectedMonth}_전체정산.xlsx`
-      : `${selectedMonth}_${selectedManager}_정산서.xlsx`;
-
-  XLSX.writeFile(workbook, fileName);
-};
-    const companySummary = {};
-
- 
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    worksheet["!cols"] = [{ wch: 12 }, { wch: 12 }, { wch: 24 }, { wch: 10 }, { wch: 15 }];
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "정산서");
+    XLSX.writeFile(workbook, `클린맙_${selectedMonth}_정산서.xlsx`);
+  };
 
   useEffect(() => {
   const handlePopState = () => {
@@ -1564,158 +1357,101 @@ setLoginPassword("");
         클린맙 업무관리 시스템
       </div>
 
-   <div
-  style={{
-    background: "white",
-    color: "#111827",
-    borderRadius: "22px",
-    padding: "16px",
-  }}
->
-  <div
-    style={{
-      display: "grid",
-      gridTemplateColumns: "1fr 1fr",
-      gap: "14px",
-      alignItems: "center",
-    }}
-  >
-    {/* 왼쪽 프로필 */}
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "50px 1fr",
-        gap: "12px",
-        alignItems: "center",
-      }}
-    >
       <div
         style={{
-          width: "50px",
-          height: "50px",
-          borderRadius: "50%",
-          background: "#0B5CFF",
-          color: "white",
-          display: "flex",
+          background: "white",
+          color: "#111827",
+          borderRadius: "22px",
+          padding: "16px",
+          display: "grid",
+          gridTemplateColumns: "1fr 1.25fr",
+          gap: "12px",
           alignItems: "center",
-          justifyContent: "center",
-          fontSize: "24px",
         }}
       >
-        👤
-      </div>
-
-      <div>
-        <div style={{ fontSize: "17px", fontWeight: "800" }}>
-          {currentUser.name}
-        </div>
-
-        <div style={{ fontSize: "12px", color: "#64748B", marginTop: "3px" }}>
-          {currentUser.role === "admin" ? "관리자" : "매니저"}
-        </div>
-
-        <div style={{ display: "flex", gap: "6px", marginTop: "8px" }}>
-          <button
-            onClick={() => setPage("myPage")}
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <div
             style={{
-              flex: 1,
-              border: "none",
+              width: "54px",
+              height: "54px",
+              borderRadius: "50%",
               background: "#0B5CFF",
               color: "white",
-              fontSize: "11px",
-              padding: "6px 0",
-              borderRadius: "8px",
-              fontWeight: "700",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "26px",
             }}
           >
-            마이페이지
-          </button>
+            👤
+          </div>
 
-          <button
-            onClick={() => {
-              setCurrentUser(null);
-              localStorage.removeItem("currentUser");
-              setLoginName("");
-              setLoginPassword("");
-              setPage("home");
-            }}
-            style={{
-              flex: 1,
-              border: "none",
-              background: "#ef4444",
-              color: "white",
-              fontSize: "11px",
-              padding: "6px 0",
-              borderRadius: "8px",
-              fontWeight: "700",
-            }}
-          >
-            로그아웃
-          </button>
-        </div>
-      </div>
-    </div>
+          <div>
+  <strong>{currentUser.name}</strong>
 
-    {/* 오른쪽 실적 */}
-    <div
-      style={{
-        background: "#F4F7FF",
-        borderRadius: "16px",
-        padding: "10px",
-        fontSize: "12px",
-      }}
-    >
-      <div
-        style={{
-          fontWeight: "800",
-          marginBottom: "8px",
-          textAlign: "center",
-          color: "#111827",
-        }}
-      >
-        {selectedMonth.slice(5)}월 실적
-      </div>
+<div
+  style={{
+    color: "#666",
+    fontSize: "13px",
+    marginTop: "4px",
+  }}
+>
+  {currentUser.role === "admin" ? "관리자" : "매니저"}
+</div>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: "6px",
-          color: "#334155",
-        }}
-      >
-        <div>
-          서비스<br />
-          <strong style={{ color: "#0B5CFF" }}>
-            {getManagerSummary(currentUser.name).workCount}건
-          </strong>
-        </div>
-
-        <div>
-          VOC<br />
-          <strong style={{ color: "#0B5CFF" }}>
-            {getManagerSummary(currentUser.name).vocCount}건
-          </strong>
-        </div>
-
-        <div>
-          점수<br />
-          <strong style={{ color: "#0B5CFF" }}>
-            {getManagerSummary(currentUser.name).score}점
-          </strong>
-        </div>
-
-        <div>
-          총정산<br />
-          <strong style={{ color: "#0B5CFF", fontSize: "11px" }}>
-            {getManagerSummary(currentUser.name).totalPay.toLocaleString()}원
-          </strong>
-        </div>
-      </div>
-    </div>
+<button
+  onClick={() => {
+    setCurrentUser(null);
+    localStorage.removeItem("currentUser");
+    setLoginName("");
+    setLoginPassword("");
+    setPage("home");
+  }}
+  style={{
+    marginTop: "10px",
+    width: "100%",
+    border: "none",
+    background: "#ef4444",
+    color: "white",
+    fontSize: "12px",
+    padding: "6px 0",
+    borderRadius: "8px",
+  }}
+>
+  로그아웃
+</button>
   </div>
 </div>
-</div>
+                    
+          
+              <div
+          style={{
+            background: "#F4F7FF",
+            borderRadius: "16px",
+            padding: "10px",
+            fontSize: "13px",
+          }}
+        >
+          <div style={{ fontWeight: "800", marginBottom: "6px" }}>
+            {selectedMonth.slice(5)}월 실적
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "6px",
+              textAlign: "left",
+            }}
+          >
+            <div>서비스<br /><strong style={{ color: "#0B5CFF" }}>{getManagerSummary(currentUser.name).workCount}건</strong></div>
+            <div>VOC<br /><strong style={{ color: "#0B5CFF" }}>{getManagerSummary(currentUser.name).vocCount}건</strong></div>
+            <div>점수<br /><strong style={{ color: "#0B5CFF" }}>{getManagerSummary(currentUser.name).score}점</strong></div>
+            <div>총 정산금액<br /><strong style={{ color: "#0B5CFF" }}>{getManagerSummary(currentUser.name).totalPay.toLocaleString()}원</strong></div>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <div
       style={{
@@ -1736,6 +1472,7 @@ setLoginPassword("");
           <button style={ui.menuCard} onClick={() => setPage("userManage")}>👥<br />매니저 관리</button>
           <button style={ui.menuCard} onClick={() => setPage("itemManage")}>🧩<br />품목 관리</button>
           <button style={ui.menuCard} onClick={() => setPage("monthLock")}>🔒<br />월마감</button>
+          <button style={ui.menuCard} onClick={() => setPage("changePassword")}>🔑<br />비밀번호 변경</button>
           <button style={ui.menuCard} onClick={() => setPage("contractAdd")}>📑<br />계약건 등록</button>   
           <button style={ui.menuCard} onClick={() => setPage("contractList")}
 >
@@ -1750,6 +1487,7 @@ setLoginPassword("");
           <button style={ui.menuCard} onClick={() => setPage("workAdd")}>📋<br />작업 등록</button>
           <button style={ui.menuCard} onClick={() => setPage("workList")}>📂<br />내 작업 조회</button>
           <button style={ui.menuCard} onClick={() => setPage("vocList")}>⚠️<br />내 VOC 조회</button>
+          <button style={ui.menuCard} onClick={() => setPage("changePassword")}>🔑<br />비밀번호 변경</button>
           <button style={ui.menuCard} onClick={() => setPage("contractList")}>📄<br />내 계약건
 </button>
         </>
@@ -2302,25 +2040,10 @@ setLoginPassword("");
                 </div>
 
                 {Object.entries(data.details || {}).map(([itemName, detail]) => (
-                  <div
-  key={itemName}
-  style={{
-    display: "flex",
-    justifyContent: "space-between",
-    padding: "6px 0",
-    borderBottom: "1px solid #F1F5F9",
-    fontSize: "14px",
-  }}
->
-  <span>
-    {displayItemName(itemName)}
-    {typeof detail.count === "number"
-      ? ` : ${detail.count.toFixed(1)}대`
-      : ""}
-  </span>
-
-  <strong>{detail.amount.toLocaleString()}원</strong>
-</div>
+                  <div key={itemName} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid #F1F5F9", fontSize: "14px" }}>
+                    <span>{displayItemName(itemName)} : {detail.count.toFixed(1)}대</span>
+                    <strong>{detail.amount.toLocaleString()}원</strong>
+                  </div>
                 ))}
 
                 <div style={{ marginTop: "12px", background: "#F8FAFC", padding: "10px", borderRadius: "12px", fontWeight: "700" }}>
@@ -2389,25 +2112,10 @@ setLoginPassword("");
                 </div>
 
                 {Object.entries(data.details || {}).map(([itemName, detail]) => (
-                  <div
-  key={itemName}
-  style={{
-    display: "flex",
-    justifyContent: "space-between",
-    padding: "6px 0",
-    borderBottom: "1px solid #F1F5F9",
-    fontSize: "14px",
-  }}
->
-  <span>
-    {displayItemName(itemName)}
-    {typeof detail.count === "number"
-      ? ` : ${detail.count.toFixed(1)}대`
-      : ""}
-  </span>
-
-  <strong>{detail.amount.toLocaleString()}원</strong>
-</div>
+                  <div key={itemName} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid #F1F5F9", fontSize: "14px" }}>
+                    <span>{displayItemName(itemName)}: {detail.count.toFixed(1)}대</span>
+                    <strong>{detail.amount.toLocaleString()}원</strong>
+                  </div>
                 ))}
 
                 {getManagerVocs(data.manager).length > 0 && (
@@ -2590,7 +2298,7 @@ setLoginPassword("");
 
           <div style={ui.sectionCard}>
             <div style={ui.sectionTitle}>👥 매니저 추가</div>
-            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 120px 120px", gap: "10px", alignItems: "end" }}>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr auto", gap: "10px", alignItems: "end" }}>
               <div>
                 <div style={ui.formLabel}>매니저명</div>
                 <input value={newUserName} onChange={(e) => setNewUserName(e.target.value)} placeholder="매니저명" style={ui.formInput} />
@@ -2610,83 +2318,20 @@ setLoginPassword("");
                   <option value="26">26년차</option>
                 </select>
               </div>
+              <button onClick={addUser} style={{ ...primaryButtonStyle, height: "42px" }}>추가</button>
             </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr 1fr", gap: "10px", marginTop: "10px" }}>
-              <div>
-                <div style={ui.formLabel}>삼성계정</div>
-                <input value={newUserSamsungAccount} onChange={(e) => setNewUserSamsungAccount(e.target.value)} placeholder="삼성계정" style={ui.formInput} />
-              </div>
-              <div>
-                <div style={ui.formLabel}>HS계정</div>
-                <input value={newUserHsAccount} onChange={(e) => setNewUserHsAccount(e.target.value)} placeholder="HS계정" style={ui.formInput} />
-              </div>
-              <div>
-                <div style={ui.formLabel}>LG계정</div>
-                <input value={newUserLgAccount} onChange={(e) => setNewUserLgAccount(e.target.value)} placeholder="LG계정" style={ui.formInput} />
-              </div>
-              <div>
-                <div style={ui.formLabel}>전화번호</div>
-                <input value={newUserPhone} onChange={(e) => setNewUserPhone(e.target.value)} placeholder="전화번호" style={ui.formInput} />
-              </div>
-            </div>
-
-            <button onClick={addUser} style={{ ...primaryButtonStyle, width: "100%", height: "46px", marginTop: "12px" }}>매니저 추가</button>
-            <div style={{ marginTop: "8px", fontSize: "13px", color: "#64748B" }}>초기 비밀번호는 0000입니다.</div>
           </div>
 
           {users.map((user) => (
             <div key={user.id} style={listCardStyle}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px", marginBottom: "12px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px" }}>
                 <div>
                   <strong style={{ fontSize: "17px" }}>{user.name}</strong>
                   <div style={smallTextStyle}>{user.role === "admin" ? "관리자" : "매니저"} / {user.year || "-"}년차</div>
                 </div>
                 <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                  <button style={primaryButtonStyle} onClick={() => saveUserInfo(user)}>저장</button>
                   <button style={secondaryButtonStyle} onClick={() => resetUserPassword(user.id)}>비밀번호 초기화</button>
                   <button style={dangerButtonStyle} onClick={() => deleteUser(user.id)}>삭제</button>
-                </div>
-              </div>
-
-              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 120px 120px", gap: "10px" }}>
-                <div>
-                  <div style={ui.formLabel}>이름</div>
-                  <input value={user.name || ""} onChange={(e) => changeUserField(user.id, "name", e.target.value)} style={ui.formInput} />
-                </div>
-                <div>
-                  <div style={ui.formLabel}>권한</div>
-                  <select value={user.role || "manager"} onChange={(e) => changeUserField(user.id, "role", e.target.value)} style={ui.formInput}>
-                    <option value="manager">매니저</option>
-                    <option value="admin">관리자</option>
-                  </select>
-                </div>
-                <div>
-                  <div style={ui.formLabel}>연차</div>
-                  <select value={user.year || "26"} onChange={(e) => changeUserField(user.id, "year", e.target.value)} style={ui.formInput}>
-                    <option value="24">24년차</option>
-                    <option value="25">25년차</option>
-                    <option value="26">26년차</option>
-                  </select>
-                </div>
-              </div>
-
-              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr 1fr", gap: "10px", marginTop: "10px" }}>
-                <div>
-                  <div style={ui.formLabel}>삼성계정</div>
-                  <input value={user.samsung_account || ""} onChange={(e) => changeUserField(user.id, "samsung_account", e.target.value)} placeholder="삼성계정" style={ui.formInput} />
-                </div>
-                <div>
-                  <div style={ui.formLabel}>HS계정</div>
-                  <input value={user.hs_account || ""} onChange={(e) => changeUserField(user.id, "hs_account", e.target.value)} placeholder="HS계정" style={ui.formInput} />
-                </div>
-                <div>
-                  <div style={ui.formLabel}>LG계정</div>
-                  <input value={user.lg_account || ""} onChange={(e) => changeUserField(user.id, "lg_account", e.target.value)} placeholder="LG계정" style={ui.formInput} />
-                </div>
-                <div>
-                  <div style={ui.formLabel}>전화번호</div>
-                  <input value={user.phone || ""} onChange={(e) => changeUserField(user.id, "phone", e.target.value)} placeholder="전화번호" style={ui.formInput} />
                 </div>
               </div>
             </div>
@@ -2704,7 +2349,7 @@ setLoginPassword("");
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: isMobile ? "1fr" : "1.4fr 160px repeat(4, 120px) 100px",
+                gridTemplateColumns: isMobile ? "1fr" : "1fr 180px 120px",
                 gap: "10px",
                 alignItems: "center",
               }}
@@ -2727,38 +2372,6 @@ setLoginPassword("");
                 <option value="etc">기타</option>
               </select>
 
-              <input
-                type="number"
-                value={newItemPayS}
-                onChange={(e) => setNewItemPayS(e.target.value)}
-                placeholder="삼성 수당"
-                style={ui.formInput}
-              />
-
-              <input
-                type="number"
-                value={newItemPayH}
-                onChange={(e) => setNewItemPayH(e.target.value)}
-                placeholder="HS 수당"
-                style={ui.formInput}
-              />
-
-              <input
-                type="number"
-                value={newItemPayC}
-                onChange={(e) => setNewItemPayC(e.target.value)}
-                placeholder="클린맙 수당"
-                style={ui.formInput}
-              />
-
-              <input
-                type="number"
-                value={newItemPayL}
-                onChange={(e) => setNewItemPayL(e.target.value)}
-                placeholder="LG 수당"
-                style={ui.formInput}
-              />
-
               <button
                 onClick={addCustomItem}
                 style={{
@@ -2775,7 +2388,7 @@ setLoginPassword("");
             </div>
 
             <div style={{ marginTop: "10px", fontSize: "13px", color: "#64748B" }}>
-              추가한 품목은 작업등록 화면의 선택한 카테고리에 바로 표시됩니다. 기존 수당표에 없는 품목은 여기 입력한 업체별 수당으로 정산됩니다.
+              추가한 품목은 작업등록 화면의 선택한 카테고리에 바로 표시됩니다. 수당표에 없는 품목은 정산금액이 0원으로 계산됩니다.
             </div>
           </div>
 
@@ -2803,9 +2416,6 @@ setLoginPassword("");
                   <div style={{ fontSize: "13px", color: "#64748B", marginTop: "3px" }}>
                     {categoryLabel[item.category] || item.category}
                   </div>
-                  <div style={{ fontSize: "13px", color: "#334155", marginTop: "5px" }}>
-                    삼성 {Number(item.pay_s || 0).toLocaleString()}원 / HS {Number(item.pay_h || 0).toLocaleString()}원 / 클린맙 {Number(item.pay_c || 0).toLocaleString()}원 / LG {Number(item.pay_l || 0).toLocaleString()}원
-                  </div>
                 </div>
 
                 <button
@@ -2823,86 +2433,6 @@ setLoginPassword("");
                 </button>
               </div>
             ))}
-          </div>
-        </>
-      )}
-
-      {page === "myPage" && currentUser && (
-        <>
-          <PageHeader title="마이페이지" />
-
-          <div style={ui.sectionCard}>
-            <div style={ui.sectionTitle}>👤 내 정보</div>
-
-            <div style={ui.formRow}>
-              <div style={ui.formLabel}>이름</div>
-              <div>{currentUser.name}</div>
-            </div>
-
-            <div style={ui.formRow}>
-              <div style={ui.formLabel}>권한</div>
-              <div>{currentUser.role === "admin" ? "관리자" : "매니저"}</div>
-            </div>
-
-            <div style={ui.formRow}>
-              <div style={ui.formLabel}>연차</div>
-              <div>{currentUser.year || "-"}</div>
-            </div>
-
-            <div style={ui.formRow}>
-              <div style={ui.formLabel}>삼성계정</div>
-              <div>{currentUser.samsung_account || "-"}</div>
-            </div>
-
-            <div style={ui.formRow}>
-              <div style={ui.formLabel}>HS계정</div>
-              <div>{currentUser.hs_account || "-"}</div>
-            </div>
-
-            <div style={ui.formRow}>
-              <div style={ui.formLabel}>LG계정</div>
-              <div>{currentUser.lg_account || "-"}</div>
-            </div>
-
-            <div style={ui.formRow}>
-              <div style={ui.formLabel}>전화번호</div>
-              <div>{currentUser.phone || "-"}</div>
-            </div>
-
-            <div style={{ marginTop: "10px", fontSize: "13px", color: "#64748B" }}>
-              계정 정보 수정은 관리자에게 요청하세요.
-            </div>
-          </div>
-
-          <div style={ui.sectionCard}>
-            <div style={ui.sectionTitle}>🔑 비밀번호 변경</div>
-
-            <input
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="새 비밀번호"
-              style={ui.formInput}
-            />
-
-            <button
-              onClick={changePassword}
-              style={ui.bottomBtn}
-            >
-              비밀번호 변경
-            </button>
-          </div>
-
-          <div style={ui.sectionCard}>
-            <div style={ui.sectionTitle}>📱 앱 정보</div>
-            <div style={ui.formRow}>
-              <div style={ui.formLabel}>앱 이름</div>
-              <div>클린맙 업무관리 시스템</div>
-            </div>
-            <div style={ui.formRow}>
-              <div style={ui.formLabel}>버전</div>
-              <div>v1.0.0</div>
-            </div>
           </div>
         </>
       )}

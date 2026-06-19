@@ -122,14 +122,10 @@ appearance: "auto",
     "벽걸이", "스탠드", "1웨이", "4웨이", "홈멀티",
     "드럼", "드럼 19k ↓", "드럼2단", "통돌이", "통돌이 19k ↓",
     "아기사랑", "빌트인", "초음파드럼", "초음파통돌이",
-    "양문형", "4도어", "일반", "빌트인냉장고",
+    "양문형", "4도어", "일반", "냉장고빌트인",
     "김치 스탠드", "김치 4도어",
     "김치 뚜껑식", "김치 빌트인", "방문취소",
   ];
-  const [itemListState, setItemListState] = useState(itemList);
-
-  const [newItem, setNewItem] = useState("");
-
   const airconItems = [
   "벽걸이",
   "스탠드",
@@ -153,7 +149,7 @@ const fridgeItems = [
   "양문형",
   "4도어",
   "일반",
-  "빌트인냉장고",
+  "냉장고빌트인",
   "김치 스탠드",
   "김치 4도어",
   "김치 뚜껑식",
@@ -246,6 +242,13 @@ const etcItems = [
   const [teamCount, setTeamCount] = useState(2);
   const [visitManagers, setVisitManagers] = useState(Array(10).fill("없음"));
   const [items, setItems] = useState(Object.fromEntries(itemList.map((item) => [item, 0])));
+  const [customItems, setCustomItems] = useState([]);
+  const [newItemName, setNewItemName] = useState("");
+  const [newItemCategory, setNewItemCategory] = useState("aircon");
+  const [newItemPayS, setNewItemPayS] = useState("");
+  const [newItemPayH, setNewItemPayH] = useState("");
+  const [newItemPayC, setNewItemPayC] = useState("");
+  const [newItemPayL, setNewItemPayL] = useState("");
 
   const [vocs, setVocs] = useState([]);
 
@@ -254,6 +257,51 @@ const [vocCompany, setVocCompany] = useState("S");
 const [vocManager, setVocManager] = useState("");
 const [vocLevel, setVocLevel] = useState("minor");
 const [vocMemo, setVocMemo] = useState("");
+
+const allItemNames = Array.from(
+  new Set([
+    ...itemList,
+    ...customItems.map((item) => item.name),
+  ])
+);
+
+const categoryLabel = {
+  aircon: "에어컨",
+  washer: "세탁기",
+  fridge: "냉장고",
+  etc: "기타",
+};
+
+const getCustomItemPay = (itemName, companyCode) => {
+  const customItem = customItems.find((item) => item.name === itemName);
+  if (!customItem) return 0;
+
+  const payMap = {
+    S: customItem.pay_s,
+    H: customItem.pay_h,
+    C: customItem.pay_c,
+    L: customItem.pay_l,
+  };
+
+  return Number(payMap[companyCode] || 0);
+};
+
+const getItemsByCategory = (category) => {
+  const basicItems =
+    category === "aircon"
+      ? airconItems
+      : category === "washer"
+      ? washerItems
+      : category === "fridge"
+      ? fridgeItems
+      : etcItems;
+
+  const addedItems = customItems
+    .filter((item) => item.category === category)
+    .map((item) => item.name);
+
+  return Array.from(new Set([...basicItems, ...addedItems]));
+};
 
   useEffect(() => {
   const savedUser = localStorage.getItem("currentUser");
@@ -269,7 +317,22 @@ const [vocMemo, setVocMemo] = useState("");
   loadUsers();
   loadMonthLocks();
   loadContractWorks();
+  loadCustomItems();
 }, []);
+
+useEffect(() => {
+  setItems((prev) => {
+    const nextItems = { ...prev };
+
+    allItemNames.forEach((itemName) => {
+      if (nextItems[itemName] === undefined) {
+        nextItems[itemName] = 0;
+      }
+    });
+
+    return nextItems;
+  });
+}, [customItems]);
   
   const monthlyWorks = works.filter((work) => work.workDate.startsWith(selectedMonth));
 
@@ -294,24 +357,13 @@ const [vocMemo, setVocMemo] = useState("");
     setItems({ ...items, [itemName]: Number(value) });
   };
 
-  const addItem = () => {
-  if (!newItem) return;
-
-  setItemListState([
-    ...itemListState,
-    newItem
-  ]);
-
-  setNewItem("");
-};
-
   const resetForm = () => {
     setWorkDate("");
     setCompany("S");
     setCodeName("없음");
     setWorkType("solo");
     setTeamCount(2);
-    setItems(Object.fromEntries(itemList.map((item) => [item, 0])));
+    setItems(Object.fromEntries(allItemNames.map((item) => [item, 0])));
     setEditingWorkId(null);
   };
 
@@ -398,6 +450,81 @@ if (editingWorkId) {
     alert(editingWorkId ? "수정되었습니다." : "저장되었습니다.");
   };
 
+const loadCustomItems = async () => {
+  const { data, error } = await supabase
+    .from("items")
+    .select("*")
+    .eq("active", true)
+    .order("category", { ascending: true })
+    .order("sort_order", { ascending: true });
+
+  if (error) {
+    console.error(error);
+    return;
+  }
+
+  setCustomItems(data || []);
+};
+
+const addCustomItem = async () => {
+  const itemName = newItemName.trim();
+
+  if (!itemName) {
+    alert("품목명을 입력하세요.");
+    return;
+  }
+
+  if (allItemNames.includes(itemName)) {
+    alert("이미 등록된 품목입니다.");
+    return;
+  }
+
+  const { error } = await supabase.from("items").insert([
+    {
+      id: Date.now(),
+      name: itemName,
+      category: newItemCategory,
+      pay_s: Number(newItemPayS || 0),
+      pay_h: Number(newItemPayH || 0),
+      pay_c: Number(newItemPayC || 0),
+      pay_l: Number(newItemPayL || 0),
+      sort_order: customItems.length + 1,
+      active: true,
+    },
+  ]);
+
+  if (error) {
+    alert(JSON.stringify(error));
+    return;
+  }
+
+  setNewItemName("");
+  setNewItemPayS("");
+  setNewItemPayH("");
+  setNewItemPayC("");
+  setNewItemPayL("");
+  await loadCustomItems();
+
+  alert("품목이 추가되었습니다.");
+};
+
+const deleteCustomItem = async (id) => {
+  if (!confirm("이 품목을 숨김 처리할까요? 기존 작업내역은 유지됩니다.")) return;
+
+  const { error } = await supabase
+    .from("items")
+    .update({ active: false })
+    .eq("id", id);
+
+  if (error) {
+    alert(JSON.stringify(error));
+    return;
+  }
+
+  await loadCustomItems();
+  alert("품목이 숨김 처리되었습니다.");
+};
+
 const loadWorks = async () => {
   const { data, error } = await supabase
     .from("works")
@@ -472,6 +599,20 @@ const loadVocs = async () => {
     console.error(error);
     return;
   }
+
+  const loadUsers = async () => {
+  const { data, error } = await supabase
+    .from("users")
+    .select("*")
+    .order("name");
+
+  if (error) {
+    console.error(error);
+    return;
+  }
+
+  setUsers(data || []);
+};
 
   const converted = (data || []).map((voc) => ({
     id: voc.id,
@@ -614,7 +755,7 @@ setVisitManagers(tempManagers);
 
         Object.entries(work.items).forEach(([itemName, count]) => {
           if (count > 0) {
-            const unitPay = allowance[itemName] || 0;
+            const unitPay = allowance[itemName] || getCustomItemPay(itemName, work.company) || 0;
             const pay = Math.floor(
   (unitPay * count) / peopleCount
 );
@@ -1031,7 +1172,7 @@ const getManagerSummary = (managerName) => {
             정산월: selectedMonth,
             매니저: data.manager,
             품목: itemName,
-            수량: detail.count.toFixed(1),
+            수량: detail.count,
             금액: Math.round(detail.amount),
           });
         });
@@ -1079,6 +1220,87 @@ const getManagerSummary = (managerName) => {
     window.removeEventListener("popstate", handlePopState);
   };
 }, [page, backPressed]);
+
+  const PageHeader = ({ title }) => (
+    <div
+      style={{
+        background: "#0B5CFF",
+        color: "white",
+        padding: "16px",
+        margin: "-20px -20px 20px",
+        textAlign: "center",
+        fontWeight: "800",
+        fontSize: "20px",
+        position: "relative",
+      }}
+    >
+      <button
+        onClick={() => setPage("home")}
+        style={{
+          position: "absolute",
+          left: "12px",
+          top: "50%",
+          transform: "translateY(-50%)",
+          background: "transparent",
+          border: "none",
+          color: "white",
+          fontSize: "24px",
+          cursor: "pointer",
+        }}
+      >
+        ←
+      </button>
+      {title}
+    </div>
+  );
+
+  const listCardStyle = {
+    background: "#fff",
+    borderRadius: "20px",
+    padding: "16px",
+    marginBottom: "14px",
+    boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+    border: "1px solid #eef2f7",
+  };
+
+  const smallTextStyle = {
+    color: "#64748B",
+    fontSize: "14px",
+    lineHeight: "1.7",
+  };
+
+  const primaryButtonStyle = {
+    border: "none",
+    borderRadius: "12px",
+    padding: "10px 14px",
+    background: "#0B5CFF",
+    color: "white",
+    fontWeight: "800",
+    cursor: "pointer",
+  };
+
+  const dangerButtonStyle = {
+    ...primaryButtonStyle,
+    background: "#ef4444",
+  };
+
+  const secondaryButtonStyle = {
+    ...primaryButtonStyle,
+    background: "#F1F5F9",
+    color: "#334155",
+  };
+
+  const emptyTextStyle = {
+    padding: "24px",
+    textAlign: "center",
+    color: "#64748B",
+    background: "#fff",
+    borderRadius: "18px",
+    boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+  };
+
+  const displayItemName = (name) =>
+    name === "냉장고빌트인" ? "빌트인" : name;
 
   
   return (
@@ -1161,101 +1383,158 @@ setLoginPassword("");
         클린맙 업무관리 시스템
       </div>
 
+   <div
+  style={{
+    background: "white",
+    color: "#111827",
+    borderRadius: "22px",
+    padding: "16px",
+  }}
+>
+  <div
+    style={{
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr",
+      gap: "14px",
+      alignItems: "center",
+    }}
+  >
+    {/* 왼쪽 프로필 */}
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "50px 1fr",
+        gap: "12px",
+        alignItems: "center",
+      }}
+    >
       <div
         style={{
-          background: "white",
-          color: "#111827",
-          borderRadius: "22px",
-          padding: "16px",
-          display: "grid",
-          gridTemplateColumns: "1fr 1.25fr",
-          gap: "12px",
+          width: "50px",
+          height: "50px",
+          borderRadius: "50%",
+          background: "#0B5CFF",
+          color: "white",
+          display: "flex",
           alignItems: "center",
+          justifyContent: "center",
+          fontSize: "24px",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <div
+        👤
+      </div>
+
+      <div>
+        <div style={{ fontSize: "17px", fontWeight: "800" }}>
+          {currentUser.name}
+        </div>
+
+        <div style={{ fontSize: "12px", color: "#64748B", marginTop: "3px" }}>
+          {currentUser.role === "admin" ? "관리자" : "매니저"}
+        </div>
+
+        <div style={{ display: "flex", gap: "6px", marginTop: "8px" }}>
+          <button
+            onClick={() => setPage("myPage")}
             style={{
-              width: "54px",
-              height: "54px",
-              borderRadius: "50%",
+              flex: 1,
+              border: "none",
               background: "#0B5CFF",
               color: "white",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: "26px",
+              fontSize: "11px",
+              padding: "6px 0",
+              borderRadius: "8px",
+              fontWeight: "700",
             }}
           >
-            👤
-          </div>
+            마이페이지
+          </button>
 
-          <div>
-  <strong>{currentUser.name}</strong>
-
-<div
-  style={{
-    color: "#666",
-    fontSize: "13px",
-    marginTop: "4px",
-  }}
->
-  {currentUser.role === "admin" ? "관리자" : "매니저"}
-</div>
-
-<button
-  onClick={() => {
-    setCurrentUser(null);
-    localStorage.removeItem("currentUser");
-    setLoginName("");
-    setLoginPassword("");
-    setPage("home");
-  }}
-  style={{
-    marginTop: "10px",
-    width: "100%",
-    border: "none",
-    background: "#ef4444",
-    color: "white",
-    fontSize: "12px",
-    padding: "6px 0",
-    borderRadius: "8px",
-  }}
->
-  로그아웃
-</button>
-  </div>
-</div>
-                    
-          
-              <div
-          style={{
-            background: "#F4F7FF",
-            borderRadius: "16px",
-            padding: "10px",
-            fontSize: "13px",
-          }}
-        >
-          <div style={{ fontWeight: "800", marginBottom: "6px" }}>
-            {selectedMonth.slice(5)}월 실적
-          </div>
-
-          <div
+          <button
+            onClick={() => {
+              setCurrentUser(null);
+              localStorage.removeItem("currentUser");
+              setLoginName("");
+              setLoginPassword("");
+              setPage("home");
+            }}
             style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "6px",
-              textAlign: "left",
+              flex: 1,
+              border: "none",
+              background: "#ef4444",
+              color: "white",
+              fontSize: "11px",
+              padding: "6px 0",
+              borderRadius: "8px",
+              fontWeight: "700",
             }}
           >
-            <div>서비스<br /><strong style={{ color: "#0B5CFF" }}>{getManagerSummary(currentUser.name).workCount}건</strong></div>
-            <div>VOC<br /><strong style={{ color: "#0B5CFF" }}>{getManagerSummary(currentUser.name).vocCount}건</strong></div>
-            <div>점수<br /><strong style={{ color: "#0B5CFF" }}>{getManagerSummary(currentUser.name).score}점</strong></div>
-            <div>총 정산금액<br /><strong style={{ color: "#0B5CFF" }}>{getManagerSummary(currentUser.name).totalPay.toLocaleString()}원</strong></div>
-          </div>
+            로그아웃
+          </button>
         </div>
       </div>
     </div>
+
+    {/* 오른쪽 실적 */}
+    <div
+      style={{
+        background: "#F4F7FF",
+        borderRadius: "16px",
+        padding: "10px",
+        fontSize: "12px",
+      }}
+    >
+      <div
+        style={{
+          fontWeight: "800",
+          marginBottom: "8px",
+          textAlign: "center",
+          color: "#111827",
+        }}
+      >
+        {selectedMonth.slice(5)}월 실적
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: "6px",
+          color: "#334155",
+        }}
+      >
+        <div>
+          서비스<br />
+          <strong style={{ color: "#0B5CFF" }}>
+            {getManagerSummary(currentUser.name).workCount}건
+          </strong>
+        </div>
+
+        <div>
+          VOC<br />
+          <strong style={{ color: "#0B5CFF" }}>
+            {getManagerSummary(currentUser.name).vocCount}건
+          </strong>
+        </div>
+
+        <div>
+          점수<br />
+          <strong style={{ color: "#0B5CFF" }}>
+            {getManagerSummary(currentUser.name).score}점
+          </strong>
+        </div>
+
+        <div>
+          총정산<br />
+          <strong style={{ color: "#0B5CFF", fontSize: "11px" }}>
+            {getManagerSummary(currentUser.name).totalPay.toLocaleString()}원
+          </strong>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
 
     <div
       style={{
@@ -1274,9 +1553,8 @@ setLoginPassword("");
           <button style={ui.menuCard} onClick={() => setPage("vocList")}>📝<br />VOC 조회</button>
           <button style={ui.menuCard} onClick={() => setPage("companyStats")}>🏢<br />업체별 실적</button>
           <button style={ui.menuCard} onClick={() => setPage("userManage")}>👥<br />매니저 관리</button>
+          <button style={ui.menuCard} onClick={() => setPage("itemManage")}>🧩<br />품목 관리</button>
           <button style={ui.menuCard} onClick={() => setPage("monthLock")}>🔒<br />월마감</button>
-          <button style={ui.menuCard} onClick={() => setPage("itemManage")}>🧩<br />품목관리</button>
-          <button style={ui.menuCard} onClick={() => setPage("changePassword")}>🔑<br />비밀번호 변경</button>
           <button style={ui.menuCard} onClick={() => setPage("contractAdd")}>📑<br />계약건 등록</button>   
           <button style={ui.menuCard} onClick={() => setPage("contractList")}
 >
@@ -1291,7 +1569,6 @@ setLoginPassword("");
           <button style={ui.menuCard} onClick={() => setPage("workAdd")}>📋<br />작업 등록</button>
           <button style={ui.menuCard} onClick={() => setPage("workList")}>📂<br />내 작업 조회</button>
           <button style={ui.menuCard} onClick={() => setPage("vocList")}>⚠️<br />내 VOC 조회</button>
-          <button style={ui.menuCard} onClick={() => setPage("changePassword")}>🔑<br />비밀번호 변경</button>
           <button style={ui.menuCard} onClick={() => setPage("contractList")}>📄<br />내 계약건
 </button>
         </>
@@ -1477,7 +1754,7 @@ setLoginPassword("");
       gap: "10px",
     }}
   >
-    {airconItems.map((item) => (
+    {getItemsByCategory("aircon").map((item) => (
       <div
         key={item}
         style={{
@@ -1542,7 +1819,7 @@ setLoginPassword("");
       gap: "10px",
     }}
   >
-    {washerItems.map((item) => (
+    {getItemsByCategory("washer").map((item) => (
       <div
         key={item}
         style={{
@@ -1607,7 +1884,7 @@ setLoginPassword("");
       gap: "10px",
     }}
   >
-    {fridgeItems.map((item) => (
+    {getItemsByCategory("fridge").map((item) => (
       <div
         key={item}
         style={{
@@ -1670,7 +1947,7 @@ setLoginPassword("");
       gap: "10px",
     }}
   >
-    {etcItems.map((item) => (
+    {getItemsByCategory("etc").map((item) => (
       <div
         key={item}
         style={{
@@ -1748,649 +2025,684 @@ setLoginPassword("");
 
       {page === "workList" && (
         <>
-          <h2>작업 조회</h2>
-          <input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} />
+          <PageHeader title="작업 조회" />
 
-          <div style={{ border: "1px solid #999", padding: "10px", margin: "15px 0", backgroundColor: "#f7f7f7" }}>
-            <h3>{selectedMonth} 작업 요약</h3>
-            <p>총 작업등록: {visibleWorks.length}건</p>
-            {Object.entries(calculateMonthlyItems(visibleWorks)).map(([itemName, count]) => (
-              <p key={itemName}>{itemName}: {count}대</p>
-            ))}
+          <div style={ui.sectionCard}>
+            <div style={ui.sectionTitle}>📅 조회월</div>
+            <input
+              type="month"
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              style={ui.formInput}
+            />
           </div>
 
+          <div style={ui.sectionCard}>
+            <div style={ui.sectionTitle}>{selectedMonth} 작업 요약</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+              <div style={{ background: "#F4F7FF", borderRadius: "14px", padding: "12px" }}>
+                <div style={smallTextStyle}>총 작업등록</div>
+                <strong style={{ color: "#0B5CFF", fontSize: "22px" }}>{visibleWorks.length}건</strong>
+              </div>
+              <div style={{ background: "#F4F7FF", borderRadius: "14px", padding: "12px" }}>
+                <div style={smallTextStyle}>총 품목수량</div>
+                <strong style={{ color: "#0B5CFF", fontSize: "22px" }}>
+                  {Object.values(calculateMonthlyItems(visibleWorks)).reduce((sum, count) => sum + Number(count), 0)}대
+                </strong>
+              </div>
+            </div>
+
+            <div style={{ marginTop: "12px" }}>
+              {Object.entries(calculateMonthlyItems(visibleWorks)).map(([itemName, count]) => (
+                <div key={itemName} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid #F1F5F9" }}>
+                  <span>{displayItemName(itemName)}</span>
+                  <strong>{count}대</strong>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {visibleWorks.length === 0 && <div style={emptyTextStyle}>등록된 작업이 없습니다.</div>}
+
           {visibleWorks.map((work) => (
-            <div key={work.id} style={{ border: "1px solid #ccc", padding: "10px", marginBottom: "10px" }}>
-              <strong>{work.workDate}</strong>
-              <p>업체: {companyName[work.company]}</p>
-              <p>코드명: {work.codeName}</p>
-              <p>작업구분: {work.workType === "team" ? `동행 작업 (${work.teamCount || work.visitManagers.length}명)` : "혼자 작업"}</p>
-              <p>방문매니저: {(work.visitManagers || []).join(", ")}</p>
-              <p>
-                품목:
-                {Object.entries(work.items)
+            <div key={work.id} style={listCardStyle}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: "10px", alignItems: "center", marginBottom: "10px" }}>
+                <strong style={{ fontSize: "18px", color: "#0B5CFF" }}>{work.workDate}</strong>
+                <span style={{ background: "#EFF6FF", color: "#0B5CFF", borderRadius: "999px", padding: "5px 10px", fontSize: "13px", fontWeight: "800" }}>
+                  {companyName[work.company]}
+                </span>
+              </div>
+
+              <div style={smallTextStyle}>코드명: {work.codeName}</div>
+              <div style={smallTextStyle}>작업구분: {work.workType === "team" ? `동행 작업 (${work.teamCount || work.visitManagers.length}명)` : "혼자 작업"}</div>
+              <div style={smallTextStyle}>방문매니저: {(work.visitManagers || []).join(", ")}</div>
+
+              <div style={{ marginTop: "12px", padding: "10px", background: "#F8FAFC", borderRadius: "12px", color: "#334155", fontSize: "14px", lineHeight: "1.7" }}>
+                {Object.entries(work.items || {})
                   .filter(([_, count]) => count > 0)
-                  .map(([name, count]) => ` ${name} ${count}대`)
+                  .map(([name, count]) => `${displayItemName(name)} ${count}대`)
                   .join(", ")}
-              </p>
+              </div>
+
               {!isMonthLocked(work.workDate.slice(0, 7)) && (
-  <>
-    <button onClick={() => startEditWork(work)}>수정</button>{" "}
-    <button onClick={() => deleteWork(work.id)}>삭제</button>
-  </>
-)}
+                <div style={{ marginTop: "14px", display: "flex", gap: "8px" }}>
+                  <button style={primaryButtonStyle} onClick={() => startEditWork(work)}>수정</button>
+                  <button style={dangerButtonStyle} onClick={() => deleteWork(work.id)}>삭제</button>
+                </div>
+              )}
             </div>
           ))}
-
-          <button onClick={() => setPage("home")}>← 메뉴로 돌아가기</button>
         </>
       )}
 
       {page === "settlement" && (
-  <>
-    <h2>정산 조회</h2>
+        <>
+          <PageHeader title="정산 조회" />
 
-    <input
-      type="month"
-      value={selectedMonth}
-      onChange={(e) => setSelectedMonth(e.target.value)}
-    />
-
-    {Object.entries(calculateSettlement())
-      .sort((a, b) => b[1].total - a[1].total)
-      .map(([manager, data], index) => (
-        <div
-          key={manager}
-          style={{
-            border: "1px solid #ccc",
-            padding: "10px",
-            marginBottom: "10px",
-          }}
-        >
-          <h3>{index + 1}위. {manager}</h3>
-
-          {Object.entries(data.details).map(([itemName, detail]) => (
-            <p key={itemName}>
-              {itemName} : {detail.count.toFixed(1)}대 :{" "}
-              {detail.amount.toLocaleString()}원
-            </p>
-          ))}
-
-          <div
-            style={{
-              background: "#F9FAFB",
-              padding: "8px",
-              borderRadius: "8px",
-              marginTop: "10px",
-              fontWeight: "600",
-            }}
-          >
-            일반작업 정산 : {(data.workPay || 0).toLocaleString()}원
+          <div style={ui.sectionCard}>
+            <div style={ui.sectionTitle}>📅 정산월</div>
+            <input
+              type="month"
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              style={ui.formInput}
+            />
           </div>
 
-          {data.contractPay > 0 && (
-            <div
-              style={{
-                background: "#EFF6FF",
-                padding: "8px",
-                borderRadius: "8px",
-                marginTop: "10px",
-                marginBottom: "10px",
-                color: "#1D4ED8",
-                fontWeight: "600",
-              }}
-            >
-              계약건 수당 : {data.contractPay.toLocaleString()}원
-            </div>
-          )}
+          {Object.entries(calculateSettlement()).length === 0 && <div style={emptyTextStyle}>정산 데이터가 없습니다.</div>}
 
-          <strong style={{ fontSize: "18px", color: "#0B5CFF" }}>
-            총정산: {data.total.toLocaleString()}원
-          </strong>
-        </div>
-      ))}
+          {Object.entries(calculateSettlement())
+            .sort((a, b) => b[1].total - a[1].total)
+            .map(([manager, data], index) => (
+              <div key={manager} style={listCardStyle}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                  <h3 style={{ margin: 0, color: "#111827" }}>{index + 1}위. {manager}</h3>
+                  <strong style={{ color: "#0B5CFF", fontSize: "20px" }}>{data.total.toLocaleString()}원</strong>
+                </div>
 
-    <button onClick={() => setPage("home")}>← 메뉴로 돌아가기</button>
-  </>
-)}
+                {Object.entries(data.details || {}).map(([itemName, detail]) => (
+                  <div key={itemName} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid #F1F5F9", fontSize: "14px" }}>
+                    <span>{displayItemName(itemName)} : {detail.count.toFixed(1)}대</span>
+                    <strong>{detail.amount.toLocaleString()}원</strong>
+                  </div>
+                ))}
+
+                <div style={{ marginTop: "12px", background: "#F8FAFC", padding: "10px", borderRadius: "12px", fontWeight: "700" }}>
+                  일반작업 정산 : {(data.workPay || 0).toLocaleString()}원
+                </div>
+
+                {(data.contractPay || 0) > 0 && (
+                  <div style={{ marginTop: "8px", background: "#EFF6FF", padding: "10px", borderRadius: "12px", color: "#1D4ED8", fontWeight: "700" }}>
+                    계약건 수당 : {data.contractPay.toLocaleString()}원
+                  </div>
+                )}
+              </div>
+            ))}
+        </>
+      )}
 
       {page === "managerStats" && (
         <>
-          <h2>매니저별 대시보드</h2>
-          <button onClick={downloadSettlementExcel}>엑셀 다운로드</button><br /><br />
+          <PageHeader title="매니저 대시보드" />
 
-          <label>조회월</label><br />
-          <input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} /><br /><br />
+          <div style={ui.sectionCard}>
+            <div style={ui.sectionTitle}>📅 조회 조건</div>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr auto", gap: "10px", alignItems: "end" }}>
+              <div>
+                <div style={ui.formLabel}>조회월</div>
+                <input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} style={ui.formInput} />
+              </div>
 
-          {currentUser?.role === "admin" && (
-  <>
-    <label>매니저 선택</label><br />
+              {currentUser?.role === "admin" && (
+                <div>
+                  <div style={ui.formLabel}>매니저 선택</div>
+                  <select value={selectedManager} onChange={(e) => setSelectedManager(e.target.value)} style={ui.formInput}>
+                    <option value="전체">전체</option>
+                    {managerList.filter((name) => name !== "없음").map((name) => (
+                      <option key={name} value={name}>{name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
-    <select
-      value={selectedManager}
-      onChange={(e) => setSelectedManager(e.target.value)}
-    >
-      <option value="전체">전체</option>
+              <button style={{ ...primaryButtonStyle, height: "42px" }} onClick={downloadSettlementExcel}>엑셀 다운로드</button>
+            </div>
+          </div>
 
-      {managerList.map((name) => (
-        <option key={name} value={name}>
-          {name}
-        </option>
-      ))}
-    </select>
-
-    <br /><br />
-  </>
-)}
           {calculateManagerStats()
-  .filter((data) => {
-    if (currentUser?.role === "manager") {
-      return data.manager === currentUser.name;
-    }
+            .filter((data) => {
+              if (currentUser?.role === "manager") return data.manager === currentUser.name;
+              return selectedManager === "전체" || data.manager === selectedManager;
+            })
+            .map((data, index) => (
+              <div key={data.manager} style={listCardStyle}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                  <h3 style={{ margin: 0 }}>{index + 1}위. {data.manager}</h3>
+                  <strong style={{ color: "#0B5CFF", fontSize: "20px" }}>{data.total.toLocaleString()}원</strong>
+                </div>
 
-    return selectedManager === "전체" || data.manager === selectedManager;
-  })
-  .map((data, index) => {
-              
-              return (
-                <div key={data.manager} style={{ border: "1px solid #ccc", padding: "10px", marginBottom: "10px" }}>
-                  <h3>{index + 1}위. {data.manager}</h3>
-                  <p>VOC: {getManagerVocs(data.manager).length}건</p>
-<p>매니저점수: {calculateManagerScore(data.manager)}점</p>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "12px" }}>
+                  <div style={{ background: "#F8FAFC", borderRadius: "12px", padding: "10px" }}>
+                    <div style={smallTextStyle}>VOC</div>
+                    <strong>{getManagerVocs(data.manager).length}건</strong>
+                  </div>
+                  <div style={{ background: "#F8FAFC", borderRadius: "12px", padding: "10px" }}>
+                    <div style={smallTextStyle}>매니저점수</div>
+                    <strong>{calculateManagerScore(data.manager)}점</strong>
+                  </div>
+                </div>
 
-{getManagerVocs(data.manager).length > 0 && (
-  <>
-    <h4>VOC 상세내역</h4>
+                {Object.entries(data.details || {}).map(([itemName, detail]) => (
+                  <div key={itemName} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid #F1F5F9", fontSize: "14px" }}>
+                    <span>{displayItemName(itemName)}: {detail.count.toFixed(1)}대</span>
+                    <strong>{detail.amount.toLocaleString()}원</strong>
+                  </div>
+                ))}
 
-    {getManagerVocs(data.manager).map((voc) => (
-      <div
-        key={voc.id}
-        style={{
-          border: "1px solid #ddd",
-          padding: "5px",
-          marginTop: "5px",
-          backgroundColor: "#fafafa",
-        }}
-      >
-        <div>{voc.date}</div>
-        <div>업체: {companyName[voc.company]}</div>
-        <div>
-          정도: {vocPenalty[voc.level]?.label} -
-          {vocPenalty[voc.level]?.point}점
-        </div>
-        <div>내용: {voc.memo}</div>
-      </div>
-    ))}
-  </>
-)}
+                {getManagerVocs(data.manager).length > 0 && (
+                  <div style={{ marginTop: "14px" }}>
+                    <div style={{ fontWeight: "800", color: "#0B5CFF", marginBottom: "8px" }}>VOC 상세내역</div>
+                    {getManagerVocs(data.manager).map((voc) => (
+                      <div key={voc.id} style={{ background: "#FEF2F2", borderRadius: "12px", padding: "10px", marginTop: "8px", fontSize: "14px", color: "#7F1D1D" }}>
+                        <div>{voc.date} / {companyName[voc.company]}</div>
+                        <div>정도: {vocPenalty[voc.level]?.label} -{vocPenalty[voc.level]?.point}점</div>
+                        <div>내용: {voc.memo}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
-                  {Object.entries(data.details).map(([itemName, detail]) => (
-                    <p key={itemName}>
-  {itemName}: {detail.count.toFixed(1)}대 / {detail.amount.toLocaleString()}원
-</p>
-                  ))}
-
-                  <strong>총 정산: {data.total.toLocaleString()}원</strong>
-
-                  <hr />
-                  <h4>작업 내역</h4>
+                <div style={{ marginTop: "14px" }}>
+                  <div style={{ fontWeight: "800", color: "#0B5CFF", marginBottom: "8px" }}>작업 내역</div>
                   {getManagerWorks(data.manager).map((work) => (
-                    <div key={work.id} style={{ border: "1px solid #ddd", padding: "5px", marginTop: "5px" }}>
-                      <div>{work.workDate}</div>
-                      <div>업체: {companyName[work.company]}</div>
-                      <div>작업구분: {work.workType === "team" ? "동행 작업" : "혼자 작업"}</div>
+                    <div key={work.id} style={{ background: "#F8FAFC", borderRadius: "12px", padding: "10px", marginTop: "8px", fontSize: "14px" }}>
+                      <div><strong>{work.workDate}</strong> / {companyName[work.company]}</div>
+                      <div>{work.workType === "team" ? "동행 작업" : "혼자 작업"}</div>
                       <div>
-                        품목:
-                        {Object.entries(work.items)
+                        {Object.entries(work.items || {})
                           .filter(([_, count]) => count > 0)
-                          .map(([name, count]) => ` ${name} ${count}대`)
+                          .map(([name, count]) => `${displayItemName(name)} ${count}대`)
                           .join(", ")}
                       </div>
                     </div>
                   ))}
                 </div>
-              );
-            })}
-
-          <button onClick={() => setPage("home")}>← 메뉴로 돌아가기</button>
+              </div>
+            ))}
         </>
       )}
 
-            {page === "companyStats" && (
+      {page === "companyStats" && (
         <>
-          <h2>업체별 실적</h2>
-          <input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} />
+          <PageHeader title="업체별 실적" />
+
+          <div style={ui.sectionCard}>
+            <div style={ui.sectionTitle}>📅 조회월</div>
+            <input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} style={ui.formInput} />
+          </div>
 
           {calculateCompanyStats().map((data) => (
-            <div key={data.company} style={{ border: "1px solid #ccc", padding: "10px", margin: "10px 0" }}>
-              <h3>{companyName[data.company]}</h3>
-              <p>작업등록: {data.workCount}건</p>
-              <p>작업등록 기준 점유율: {data.workPercent}%</p>
-              <p>총 품목수량: {data.itemCount}대</p>
-              <p>품목수량 기준 점유율: {data.itemPercent}%</p>
+            <div key={data.company} style={listCardStyle}>
+              <h3 style={{ marginTop: 0, color: "#0B5CFF" }}>{companyName[data.company]}</h3>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                <div style={{ background: "#F8FAFC", borderRadius: "12px", padding: "10px" }}>
+                  <div style={smallTextStyle}>작업등록</div>
+                  <strong>{data.workCount}건</strong>
+                </div>
+                <div style={{ background: "#F8FAFC", borderRadius: "12px", padding: "10px" }}>
+                  <div style={smallTextStyle}>작업 점유율</div>
+                  <strong>{data.workPercent}%</strong>
+                </div>
+                <div style={{ background: "#F8FAFC", borderRadius: "12px", padding: "10px" }}>
+                  <div style={smallTextStyle}>총 품목수량</div>
+                  <strong>{data.itemCount}대</strong>
+                </div>
+                <div style={{ background: "#F8FAFC", borderRadius: "12px", padding: "10px" }}>
+                  <div style={smallTextStyle}>품목 점유율</div>
+                  <strong>{data.itemPercent}%</strong>
+                </div>
+              </div>
             </div>
           ))}
-
-          <button onClick={() => setPage("home")}>← 메뉴로 돌아가기</button>
         </>
       )}
+
       {page === "vocAdd" && (
         <>
-          <h2>VOC 등록</h2>
+          <PageHeader title="VOC 등록" />
 
-          <label>등록일</label><br />
-          <input
-            type="date"
-            value={vocDate}
-            onChange={(e) => setVocDate(e.target.value)}
-          /><br /><br />
+          <div style={ui.sectionCard}>
+            <div style={ui.sectionTitle}>⚠️ VOC 정보</div>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: "12px" }}>
+              <div>
+                <div style={ui.formLabel}>등록일</div>
+                <input type="date" value={vocDate} onChange={(e) => setVocDate(e.target.value)} style={ui.formInput} />
+              </div>
+              <div>
+                <div style={ui.formLabel}>업체</div>
+                <select value={vocCompany} onChange={(e) => setVocCompany(e.target.value)} style={ui.formInput}>
+                  <option value="S">삼성</option>
+                  <option value="H">HS</option>
+                  <option value="C">클린맙</option>
+                  <option value="L">LG</option>
+                </select>
+              </div>
+              <div>
+                <div style={ui.formLabel}>매니저명</div>
+                <select value={vocManager} onChange={(e) => setVocManager(e.target.value)} style={ui.formInput}>
+                  <option value="">선택</option>
+                  {managerList.filter((name) => name !== "없음").map((name) => (
+                    <option key={name} value={name}>{name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <div style={ui.formLabel}>VOC 정도</div>
+                <select value={vocLevel} onChange={(e) => setVocLevel(e.target.value)} style={ui.formInput}>
+                  <option value="minor">경미 -1점</option>
+                  <option value="normal">보통 -3점</option>
+                  <option value="serious">중대 -5점</option>
+                  <option value="critical">심각 -10점</option>
+                </select>
+              </div>
+            </div>
 
-          <label>업체</label><br />
-          <select value={vocCompany} onChange={(e) => setVocCompany(e.target.value)}>
-            <option value="S">삼성</option>
-            <option value="H">HS</option>
-            <option value="C">클린맙</option>
-            <option value="L">LG</option>
-          </select><br /><br />
+            <div style={{ marginTop: "12px" }}>
+              <div style={ui.formLabel}>내용</div>
+              <textarea
+                value={vocMemo}
+                onChange={(e) => setVocMemo(e.target.value)}
+                placeholder="VOC 내용을 입력하세요"
+                style={{ ...ui.formInput, height: "110px", padding: "10px", resize: "vertical" }}
+              />
+            </div>
+          </div>
 
-          <label>매니저명</label><br />
-          <select value={vocManager} onChange={(e) => setVocManager(e.target.value)}>
-            <option value="">선택</option>
-            {managerList.filter((name) => name !== "없음").map((name) => (
-              <option key={name} value={name}>{name}</option>
-            ))}
-          </select><br /><br />
-
-          <label>VOC 정도</label><br />
-          <select value={vocLevel} onChange={(e) => setVocLevel(e.target.value)}>
-            <option value="minor">경미 -1점</option>
-            <option value="normal">보통 -3점</option>
-            <option value="serious">중대 -5점</option>
-            <option value="critical">심각 -10점</option>
-          </select><br /><br />
-
-          <label>내용</label><br />
-          <textarea
-            value={vocMemo}
-            onChange={(e) => setVocMemo(e.target.value)}
-            placeholder="VOC 내용을 입력하세요"
-            style={{ width: "300px", height: "100px" }}
-          /><br /><br />
-
-          <button onClick={saveVoc}>VOC 저장</button><br /><br />
-          <button onClick={() => setPage("home")}>← 메뉴로 돌아가기</button>
+          <button onClick={saveVoc} style={{ ...primaryButtonStyle, width: "100%", height: "52px", fontSize: "17px" }}>VOC 저장</button>
         </>
       )}
 
       {page === "vocList" && (
         <>
-          <h2>VOC 조회</h2>
+          <PageHeader title="VOC 조회" />
 
-          <label>조회월</label><br />
-          <input
-            type="month"
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-          /><br /><br />
+          <div style={ui.sectionCard}>
+            <div style={ui.sectionTitle}>📅 조회월</div>
+            <input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} style={ui.formInput} />
+          </div>
 
-          {visibleVocs.length === 0 && <p>등록된 VOC가 없습니다.</p>}
+          {visibleVocs.length === 0 && <div style={emptyTextStyle}>등록된 VOC가 없습니다.</div>}
 
           {visibleVocs.map((voc) => (
-            <div key={voc.id} style={{ border: "1px solid #ccc", padding: "10px", margin: "10px 0" }}>
-              <strong>{voc.date}</strong>
-              <p>업체: {companyName[voc.company]}</p>
-              <p>매니저: {voc.manager}</p>
-              <p>정도: {vocPenalty[voc.level]?.label} -{vocPenalty[voc.level]?.point}점</p>
-              <p>내용: {voc.memo}</p>
+            <div key={voc.id} style={listCardStyle}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+                <strong style={{ color: "#0B5CFF", fontSize: "18px" }}>{voc.date}</strong>
+                <span style={{ background: "#FEF2F2", color: "#DC2626", borderRadius: "999px", padding: "5px 10px", fontSize: "13px", fontWeight: "800" }}>
+                  -{vocPenalty[voc.level]?.point}점
+                </span>
+              </div>
+              <div style={smallTextStyle}>업체: {companyName[voc.company]}</div>
+              <div style={smallTextStyle}>매니저: {voc.manager}</div>
+              <div style={smallTextStyle}>정도: {vocPenalty[voc.level]?.label}</div>
+              <div style={{ marginTop: "10px", background: "#F8FAFC", borderRadius: "12px", padding: "10px", color: "#334155" }}>{voc.memo}</div>
+
               {!isMonthLocked(voc.date.slice(0, 7)) && (
-  <button onClick={() => deleteVoc(voc.id)}>삭제</button>
-)}
+                <button style={{ ...dangerButtonStyle, marginTop: "12px" }} onClick={() => deleteVoc(voc.id)}>삭제</button>
+              )}
             </div>
           ))}
-
-          <button onClick={() => setPage("home")}>← 메뉴로 돌아가기</button>
         </>
       )}
 
-          {page === "changePassword" && (
+      {page === "changePassword" && (
         <>
-          <h2>비밀번호 변경</h2>
+          <PageHeader title="비밀번호 변경" />
 
-          <input
-            type="password"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            placeholder="새 비밀번호"
-          />
+          <div style={ui.sectionCard}>
+            <div style={ui.sectionTitle}>🔑 새 비밀번호</div>
+            <input
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="새 비밀번호"
+              style={ui.formInput}
+            />
+          </div>
 
-          <br /><br />
-
-          <button onClick={changePassword}>
-            변경하기
-          </button>
-
-          <br /><br />
-
-          <button onClick={() => setPage("home")}>
-            ← 메뉴로 돌아가기
-          </button>
+          <button onClick={changePassword} style={{ ...primaryButtonStyle, width: "100%", height: "52px", fontSize: "17px" }}>변경하기</button>
         </>
-      )} 
+      )}
 
-      {page === "itemManage" && (
+      {page === "userManage" && currentUser?.role === "admin" && (
+        <>
+          <PageHeader title="매니저 관리" />
+
+          <div style={ui.sectionCard}>
+            <div style={ui.sectionTitle}>👥 매니저 추가</div>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr auto", gap: "10px", alignItems: "end" }}>
+              <div>
+                <div style={ui.formLabel}>매니저명</div>
+                <input value={newUserName} onChange={(e) => setNewUserName(e.target.value)} placeholder="매니저명" style={ui.formInput} />
+              </div>
+              <div>
+                <div style={ui.formLabel}>권한</div>
+                <select value={newUserRole} onChange={(e) => setNewUserRole(e.target.value)} style={ui.formInput}>
+                  <option value="manager">매니저</option>
+                  <option value="admin">관리자</option>
+                </select>
+              </div>
+              <div>
+                <div style={ui.formLabel}>연차</div>
+                <select value={newUserYear} onChange={(e) => setNewUserYear(e.target.value)} style={ui.formInput}>
+                  <option value="24">24년차</option>
+                  <option value="25">25년차</option>
+                  <option value="26">26년차</option>
+                </select>
+              </div>
+              <button onClick={addUser} style={{ ...primaryButtonStyle, height: "42px" }}>추가</button>
+            </div>
+          </div>
+
+          {users.map((user) => (
+            <div key={user.id} style={listCardStyle}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px" }}>
+                <div>
+                  <strong style={{ fontSize: "17px" }}>{user.name}</strong>
+                  <div style={smallTextStyle}>{user.role === "admin" ? "관리자" : "매니저"} / {user.year || "-"}년차</div>
+                </div>
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                  <button style={secondaryButtonStyle} onClick={() => resetUserPassword(user.id)}>비밀번호 초기화</button>
+                  <button style={dangerButtonStyle} onClick={() => deleteUser(user.id)}>삭제</button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </>
+      )}
+
+      {page === "itemManage" && currentUser?.role === "admin" && (
+        <>
+          <PageHeader title="품목 관리" />
+
+          <div style={ui.sectionCard}>
+            <div style={ui.sectionTitle}>🧩 품목 추가</div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: isMobile ? "1fr" : "1.4fr 160px repeat(4, 120px) 100px",
+                gap: "10px",
+                alignItems: "center",
+              }}
+            >
+              <input
+                value={newItemName}
+                onChange={(e) => setNewItemName(e.target.value)}
+                placeholder="품목명 예: 무풍벽걸이"
+                style={ui.formInput}
+              />
+
+              <select
+                value={newItemCategory}
+                onChange={(e) => setNewItemCategory(e.target.value)}
+                style={ui.formInput}
+              >
+                <option value="aircon">에어컨</option>
+                <option value="washer">세탁기</option>
+                <option value="fridge">냉장고</option>
+                <option value="etc">기타</option>
+              </select>
+
+              <input
+                type="number"
+                value={newItemPayS}
+                onChange={(e) => setNewItemPayS(e.target.value)}
+                placeholder="삼성 수당"
+                style={ui.formInput}
+              />
+
+              <input
+                type="number"
+                value={newItemPayH}
+                onChange={(e) => setNewItemPayH(e.target.value)}
+                placeholder="HS 수당"
+                style={ui.formInput}
+              />
+
+              <input
+                type="number"
+                value={newItemPayC}
+                onChange={(e) => setNewItemPayC(e.target.value)}
+                placeholder="클린맙 수당"
+                style={ui.formInput}
+              />
+
+              <input
+                type="number"
+                value={newItemPayL}
+                onChange={(e) => setNewItemPayL(e.target.value)}
+                placeholder="LG 수당"
+                style={ui.formInput}
+              />
+
+              <button
+                onClick={addCustomItem}
+                style={{
+                  height: "42px",
+                  borderRadius: "10px",
+                  border: "none",
+                  background: "#0B5CFF",
+                  color: "white",
+                  fontWeight: "800",
+                }}
+              >
+                추가
+              </button>
+            </div>
+
+            <div style={{ marginTop: "10px", fontSize: "13px", color: "#64748B" }}>
+              추가한 품목은 작업등록 화면의 선택한 카테고리에 바로 표시됩니다. 기존 수당표에 없는 품목은 여기 입력한 업체별 수당으로 정산됩니다.
+            </div>
+          </div>
+
+          <div style={ui.sectionCard}>
+            <div style={ui.sectionTitle}>📋 추가 품목 목록</div>
+
+            {customItems.length === 0 && (
+              <p style={{ color: "#64748B" }}>추가된 품목이 없습니다.</p>
+            )}
+
+            {customItems.map((item) => (
+              <div
+                key={item.id}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr auto auto",
+                  gap: "8px",
+                  alignItems: "center",
+                  padding: "10px 0",
+                  borderBottom: "1px solid #E5E7EB",
+                }}
+              >
+                <div>
+                  <strong>{item.name}</strong>
+                  <div style={{ fontSize: "13px", color: "#64748B", marginTop: "3px" }}>
+                    {categoryLabel[item.category] || item.category}
+                  </div>
+                  <div style={{ fontSize: "13px", color: "#334155", marginTop: "5px" }}>
+                    삼성 {Number(item.pay_s || 0).toLocaleString()}원 / HS {Number(item.pay_h || 0).toLocaleString()}원 / 클린맙 {Number(item.pay_c || 0).toLocaleString()}원 / LG {Number(item.pay_l || 0).toLocaleString()}원
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => deleteCustomItem(item.id)}
+                  style={{
+                    border: "none",
+                    borderRadius: "8px",
+                    padding: "7px 10px",
+                    background: "#ef4444",
+                    color: "white",
+                    fontWeight: "700",
+                  }}
+                >
+                  숨김
+                </button>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {page === "myPage" && currentUser && (
   <>
-    <h2>품목 관리</h2>
+    <PageHeader title="마이페이지" />
 
-    <input
-      value={newItem}
-      onChange={(e) =>
-        setNewItem(e.target.value)
-      }
-      placeholder="품목명"
-    />
-
-    <button onClick={addItem}>
-      추가
-    </button>
-
-    <hr />
-
-    {itemListState.map((item, index) => (
-  <div key={`${item}-${index}`}>
-    {item}
-  </div>
-))}
-
-    <button
-      onClick={() => setPage("home")}
-    >
-      돌아가기
-    </button>
-  </>
-)}
-
-          {page === "userManage" && (
-  <>
-    <h2>매니저 관리</h2>
-
-    <input
-      value={newUserName}
-      onChange={(e) => setNewUserName(e.target.value)}
-      placeholder="매니저명"
-    />
-
-    <br /><br />
-
-    <select
-      value={newUserYear}
-      onChange={(e) => setNewUserYear(e.target.value)}
-    >
-      <option value="24">24년차</option>
-      <option value="25">25년차</option>
-      <option value="26">26년차</option>
-    </select>
-
-    <br /><br />
-
-    <button onClick={addUser}>
-      매니저 추가
-    </button>
-
-    <hr />
-
-    {users.map((user) => (
-      <div key={user.id}>
-        {user.name} ({user.role})
-
-        <button
-          onClick={() => resetUserPassword(user.id)}
-        >
-          비밀번호 초기화
-        </button>
-
-        <button
-          onClick={() => deleteUser(user.id)}
-        >
-          삭제
-        </button>
-
-        <br /><br />
-      </div>
-    ))}
-
-    <button onClick={() => setPage("home")}>
-      ← 메뉴로 돌아가기
-    </button>
-  </>
-)}
-
-{page === "monthLock" && (
-  <>
-    <h2>월마감</h2>
-
-    <input
-      type="month"
-      value={selectedMonth}
-      onChange={(e) =>
-        setSelectedMonth(e.target.value)
-      }
-    />
-
-    <br /><br />
-
-    <p>
-      상태 :
-      {isMonthLocked(selectedMonth)
-        ? " 🔒 마감"
-        : " 🔓 진행중"}
-    </p>
-
-    {!isMonthLocked(selectedMonth) ? (
-  <button onClick={lockMonth}>
-    월마감 실행
-  </button>
-) : (
-  <button onClick={unlockMonth}>
-    마감 해제
-  </button>
-)}
-
-    <br /><br />
-
-    <button onClick={() => setPage("home")}>
-      ← 메뉴로 돌아가기
-    </button>
-  </>
-)}
-
-{page === "contractAdd" && (
-  <>
     <div style={ui.sectionCard}>
-      <div style={ui.sectionTitle}>📑 계약건 등록</div>
+      <div style={ui.sectionTitle}>👤 내 정보</div>
 
-      
-      <label>작업일</label><br />
+      <div style={ui.formRow}>
+        <div style={ui.formLabel}>이름</div>
+        <div>{currentUser.name}</div>
+      </div>
 
-<input
-  type="date"
-  value={contractDate}
-  onChange={(e) => setContractDate(e.target.value)}
-/>
-  <br /><br />
+      <div style={ui.formRow}>
+        <div style={ui.formLabel}>권한</div>
+        <div>{currentUser.role === "admin" ? "관리자" : "매니저"}</div>
+      </div>
 
-      <label>계약명</label><br />
+      <div style={ui.formRow}>
+        <div style={ui.formLabel}>연차</div>
+        <div>{currentUser.year || "-"}</div>
+      </div>
+    </div>
+
+    <div style={ui.sectionCard}>
+      <div style={ui.sectionTitle}>🔑 비밀번호 변경</div>
+
       <input
-        value={contractTitle}
-        onChange={(e) => setContractTitle(e.target.value)}
-        placeholder="예: 삼성 대량건 6월 1차"
-      /><br /><br />
+        type="password"
+        value={newPassword}
+        onChange={(e) => setNewPassword(e.target.value)}
+        placeholder="새 비밀번호"
+        style={ui.formInput}
+      />
 
-      <label>매니저</label><br />
-      <select
-        value={contractManager}
-        onChange={(e) => setContractManager(e.target.value)}
+      <button
+        onClick={changePassword}
+        style={ui.bottomBtn}
       >
-        <option value="">선택</option>
-        {managerList.filter((name) => name !== "없음").map((name) => (
-          <option key={name} value={name}>{name}</option>
-        ))}
-      </select><br /><br />
-
-      <label>수당 금액</label><br />
-      <input
-        type="number"
-        value={contractAmount}
-        onChange={(e) => setContractAmount(e.target.value)}
-        placeholder="예: 350000"
-      /><br /><br />
-
-      <label>메모</label><br />
-      <textarea
-        value={contractMemo}
-        onChange={(e) => setContractMemo(e.target.value)}
-        placeholder="계약건 메모"
-        style={{ width: "100%", height: "80px" }}
-      /><br /><br />
-
-      <button onClick={saveContractWork}>계약건 저장</button><br /><br />
-      <button onClick={() => setPage("home")}>← 메뉴로 돌아가기</button>
+        비밀번호 변경
+      </button>
     </div>
   </>
 )}
-{page === "contractList" && (
-  <>
-    <h2>계약건 조회</h2>
 
-    <input
-      type="month"
-      value={selectedMonth}
-      onChange={(e) => setSelectedMonth(e.target.value)}
-    />
+      {page === "monthLock" && currentUser?.role === "admin" && (
+        <>
+          <PageHeader title="월마감" />
 
-    {(currentUser.role === "manager"
-      ? contractWorks.filter(
-          (item) =>
-            item.manager === currentUser.name &&
-            item.work_date.startsWith(selectedMonth)
-        )
-      : contractWorks.filter((item) =>
-          item.work_date.startsWith(selectedMonth)
-        )
-    ).map((item) => (
-      
-  <div
-    key={item.id}
-    style={{
-  background: "#ffffff",
-  borderRadius: "20px",
-  padding: "20px",
-  marginBottom: "16px",
-  boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
-  border: "1px solid #f1f5f9",
-  textAlign: "left",
-  }}
-  
-      >
-       <div
-  style={{
-    fontSize: "22px",
-    fontWeight: "800",
-    color: "#0B5CFF",
-    marginBottom: "12px",
-  }}
->
-  📑 {item.title}
-</div>
+          <div style={ui.sectionCard}>
+            <div style={ui.sectionTitle}>🔒 마감월 선택</div>
+            <input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} style={ui.formInput} />
 
-<div
-  style={{
-    marginTop: "10px",
-    lineHeight: "2",
-    color: "#475569",
-  }}
->
-  <div>📅 {item.work_date}</div>
+            <div style={{ marginTop: "16px", background: isMonthLocked(selectedMonth) ? "#FEF2F2" : "#F0FDF4", color: isMonthLocked(selectedMonth) ? "#B91C1C" : "#15803D", borderRadius: "14px", padding: "14px", fontWeight: "800" }}>
+              상태 : {isMonthLocked(selectedMonth) ? "🔒 마감" : "🔓 진행중"}
+            </div>
+          </div>
 
-  <div>👤 {item.manager}</div>
-</div>
+          {!isMonthLocked(selectedMonth) ? (
+            <button onClick={lockMonth} style={{ ...primaryButtonStyle, width: "100%", height: "52px", fontSize: "17px" }}>월마감 실행</button>
+          ) : (
+            <button onClick={unlockMonth} style={{ ...dangerButtonStyle, width: "100%", height: "52px", fontSize: "17px" }}>마감 해제</button>
+          )}
+        </>
+      )}
 
-<div
-  style={{
-    marginTop: "12px",
-    fontSize: "24px",
-    fontWeight: "800",
-    color: "#0B5CFF",
-  }}
->
-  💰 {Number(item.amount).toLocaleString()}원
-</div>
+      {page === "contractAdd" && (
+        <>
+          <PageHeader title={editingContractId ? "계약건 수정" : "계약건 등록"} />
 
-{item.memo && (
-  <div
-    style={{
-      marginTop: "12px",
-      padding: "10px",
-      background: "#F8FAFC",
-      borderRadius: "10px",
-      color: "#475569",
-    }}
-  >
-    📝 {item.memo}
-  </div>
-)}
+          <div style={ui.sectionCard}>
+            <div style={ui.sectionTitle}>📑 계약건 정보</div>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: "12px" }}>
+              <div>
+                <div style={ui.formLabel}>작업일</div>
+                <input type="date" value={contractDate} onChange={(e) => setContractDate(e.target.value)} style={ui.formInput} />
+              </div>
+              <div>
+                <div style={ui.formLabel}>매니저</div>
+                <select value={contractManager} onChange={(e) => setContractManager(e.target.value)} style={ui.formInput}>
+                  <option value="">선택</option>
+                  {managerList.filter((name) => name !== "없음").map((name) => (
+                    <option key={name} value={name}>{name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <div style={ui.formLabel}>계약명</div>
+                <input value={contractTitle} onChange={(e) => setContractTitle(e.target.value)} placeholder="예: 삼성 대량건 6월 1차" style={ui.formInput} />
+              </div>
+              <div>
+                <div style={ui.formLabel}>수당 금액</div>
+                <input type="number" value={contractAmount} onChange={(e) => setContractAmount(e.target.value)} placeholder="예: 350000" style={ui.formInput} />
+              </div>
+            </div>
 
-        {item.memo && (
-          <p>메모 : {item.memo}</p>
-        )}
+            <div style={{ marginTop: "12px" }}>
+              <div style={ui.formLabel}>메모</div>
+              <textarea
+                value={contractMemo}
+                onChange={(e) => setContractMemo(e.target.value)}
+                placeholder="계약건 메모"
+                style={{ ...ui.formInput, height: "90px", padding: "10px", resize: "vertical" }}
+              />
+            </div>
+          </div>
 
-    {currentUser.role === "admin" && (
-  <div
-    style={{
-      display: "flex",
-      justifyContent: "flex-start",
-      gap: "10px",
-      marginTop: "16px",
-    }}
-  >
-    <button
-      onClick={() =>
-        startEditContractWork(item)
-      }
-      style={{
-        background: "#0B5CFF",
-        color: "white",
-        border: "none",
-        borderRadius: "10px",
-        padding: "8px 16px",
-      }}
-    >
-      수정
-    </button>
+          <button onClick={saveContractWork} style={{ ...primaryButtonStyle, width: "100%", height: "52px", fontSize: "17px" }}>
+            {editingContractId ? "수정 저장" : "계약건 저장"}
+          </button>
+        </>
+      )}
 
-    <button
-      onClick={() =>
-        deleteContractWork(item.id)
-      }
-      style={{
-        background: "#ef4444",
-        color: "white",
-        border: "none",
-        borderRadius: "10px",
-        padding: "8px 16px",
-      }}
-    >
-      삭제
-    </button>
-  </div>
-)}
-      </div>
-    ))}
+      {page === "contractList" && (
+        <>
+          <PageHeader title="계약건 조회" />
 
-    <button onClick={() => setPage("home")}>
-      ← 메뉴로 돌아가기
-    </button>
-  </>
-)}
+          <div style={ui.sectionCard}>
+            <div style={ui.sectionTitle}>📅 조회월</div>
+            <input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} style={ui.formInput} />
+          </div>
+
+          {(currentUser.role === "manager"
+            ? contractWorks.filter((item) => item.manager === currentUser.name && item.work_date.startsWith(selectedMonth))
+            : contractWorks.filter((item) => item.work_date.startsWith(selectedMonth))
+          ).length === 0 && <div style={emptyTextStyle}>등록된 계약건이 없습니다.</div>}
+
+          {(currentUser.role === "manager"
+            ? contractWorks.filter((item) => item.manager === currentUser.name && item.work_date.startsWith(selectedMonth))
+            : contractWorks.filter((item) => item.work_date.startsWith(selectedMonth))
+          ).map((item) => (
+            <div key={item.id} style={listCardStyle}>
+              <div style={{ fontSize: "20px", fontWeight: "800", color: "#0B5CFF", marginBottom: "10px" }}>📑 {item.title}</div>
+              <div style={smallTextStyle}>📅 {item.work_date}</div>
+              <div style={smallTextStyle}>👤 {item.manager}</div>
+              <div style={{ marginTop: "12px", fontSize: "24px", fontWeight: "800", color: "#0B5CFF" }}>💰 {Number(item.amount).toLocaleString()}원</div>
+
+              {item.memo && (
+                <div style={{ marginTop: "12px", padding: "10px", background: "#F8FAFC", borderRadius: "12px", color: "#475569" }}>📝 {item.memo}</div>
+              )}
+
+              {currentUser.role === "admin" && (
+                <div style={{ display: "flex", gap: "8px", marginTop: "14px" }}>
+                  <button style={primaryButtonStyle} onClick={() => startEditContractWork(item)}>수정</button>
+                  <button style={dangerButtonStyle} onClick={() => deleteContractWork(item.id)}>삭제</button>
+                </div>
+              )}
+            </div>
+          ))}
+        </>
+      )}
     </div>
   );
 }
