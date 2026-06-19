@@ -337,6 +337,17 @@ const getItemsByCategory = (category) => {
 }, []);
 
 useEffect(() => {
+  if (!currentUser || users.length === 0) return;
+
+  const freshUser = users.find((user) => user.id === currentUser.id);
+
+  if (!freshUser) return;
+
+  setCurrentUser(freshUser);
+  localStorage.setItem("currentUser", JSON.stringify(freshUser));
+}, [users]);
+
+useEffect(() => {
   setItems((prev) => {
     const nextItems = { ...prev };
 
@@ -1412,7 +1423,10 @@ const getManagerSummary = (managerName) => {
         textAlign: "center",
         fontWeight: "800",
         fontSize: "20px",
-        position: "relative",
+        position: "sticky",
+top: 0,
+zIndex: 999,
+boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
       }}
     >
       <button
@@ -1760,36 +1774,61 @@ setLoginPassword("");
 
      {page === "workAdd" && (
   <>
-    <div
-      style={{
-        background: "#0B5CFF",
-        color: "white",
-        padding: "16px",
-        margin: "-20px -20px 20px",
-        textAlign: "center",
-        fontWeight: "800",
-        fontSize: "20px",
-        position: "relative",
-      }}
-    >
-      <button
-        onClick={() => setPage("home")}
-        style={{
-          position: "absolute",
-          left: "12px",
-          top: "50%",
-          transform: "translateY(-50%)",
-          background: "transparent",
-          border: "none",
-          color: "white",
-          fontSize: "24px",
-        }}
-      >
-        ←
-      </button>
+   <div
+  style={{
+    background: "#0B5CFF",
+    color: "white",
+    padding: "16px",
+    margin: "-20px -20px 20px",
+    position: "sticky",
+    top: 0,
+    zIndex: 999,
+  }}
+>
+  <button
+    onClick={() => setPage("home")}
+    style={{
+      position: "absolute",
+      left: "12px",
+      top: "50%",
+      transform: "translateY(-50%)",
+      background: "transparent",
+      border: "none",
+      color: "white",
+      fontSize: "24px",
+    }}
+  >
+    ←
+  </button>
 
-      {editingWorkId ? "작업 수정" : "작업 등록"}
-    </div>
+  <div
+    style={{
+      textAlign: "center",
+      fontWeight: "800",
+      fontSize: "20px",
+    }}
+  >
+    {editingWorkId ? "작업 수정" : "작업 등록"}
+  </div>
+
+  <button
+    onClick={saveWork}
+    style={{
+      position: "absolute",
+      right: "12px",
+      top: "50%",
+      transform: "translateY(-50%)",
+      border: "none",
+      borderRadius: "8px",
+      padding: "8px 12px",
+      background: "white",
+      color: "#0B5CFF",
+      fontWeight: "800",
+    }}
+  >
+    저장
+  </button>
+</div>
 
     <div style={ui.sectionCard}>
       <div
@@ -2184,22 +2223,8 @@ setLoginPassword("");
 
 </div>
 
-    <button
-      onClick={saveWork}
-      style={{
-        width: "100%",
-        height: "52px",
-        borderRadius: "14px",
-        border: "none",
-        background: "#0B5CFF",
-        color: "white",
-        fontSize: "18px",
-        fontWeight: "800",
-        marginTop: "10px",
-      }}
-    >
-      {editingWorkId ? "수정 저장" : "저장하기"}
-    </button>
+    
+    
   </>
 )}
 
@@ -2603,11 +2628,11 @@ setLoginPassword("");
                 </select>
               </div>
               <div>
-                <div style={ui.formLabel}>연차</div>
+                <div style={ui.formLabel}>입사년도</div>
                 <select value={newUserYear} onChange={(e) => setNewUserYear(e.target.value)} style={ui.formInput}>
-                  <option value="24">24년차</option>
-                  <option value="25">25년차</option>
-                  <option value="26">26년차</option>
+                  <option value="24">2024</option>
+                  <option value="25">2025</option>
+                  <option value="26">2026</option>
                 </select>
               </div>
             </div>
@@ -2662,11 +2687,11 @@ setLoginPassword("");
                   </select>
                 </div>
                 <div>
-                  <div style={ui.formLabel}>연차</div>
+                  <div style={ui.formLabel}>입사년도</div>
                   <select value={user.year || "26"} onChange={(e) => changeUserField(user.id, "year", e.target.value)} style={ui.formInput}>
-                    <option value="24">24년차</option>
-                    <option value="25">25년차</option>
-                    <option value="26">26년차</option>
+                    <option value="24">2024</option>
+                    <option value="25">2025</option>
+                    <option value="26">2026</option>
                   </select>
                 </div>
               </div>
@@ -2845,7 +2870,7 @@ setLoginPassword("");
             </div>
 
             <div style={ui.formRow}>
-              <div style={ui.formLabel}>연차</div>
+              <div style={ui.formLabel}>입사년도</div>
               <div>{currentUser.year || "-"}</div>
             </div>
 
