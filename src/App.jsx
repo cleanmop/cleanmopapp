@@ -212,6 +212,9 @@ const etcItems = [
   const [newPassword, setNewPassword] = useState("");
   const [loginName, setLoginName] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
+  const [cashReceived, setCashReceived] = useState(false);
+const [cashAmount, setCashAmount] = useState("");
+const [cashManager, setCashManager] = useState("없음");
   const managerCodeMap = {
   "김동완": ["김동완", "이왕국"],
   "김성민": ["김성민"],
@@ -253,7 +256,7 @@ const etcItems = [
   const [contractMemo, setContractMemo] = useState("");
   const [workDate, setWorkDate] = useState("");
   const [company, setCompany] = useState("S");
-  const [codeName, setCodeName] = useState("없음");
+  const [codeName, setCodeName] = useState("");
   const [workType, setWorkType] = useState("solo");
   const [teamCount, setTeamCount] = useState(2);
   const [visitManagers, setVisitManagers] = useState(Array(10).fill("없음"));
@@ -387,15 +390,26 @@ useEffect(() => {
   const resetForm = () => {
     setWorkDate("");
     setCompany("S");
-    setCodeName("없음");
+    setCodeName(
+  currentUser?.role === "manager"
+    ? managerCodeMap[currentUser.name]?.[0] || currentUser.name
+    : ""
+);
     setWorkType("solo");
     setTeamCount(2);
     setItems(Object.fromEntries(allItemNames.map((item) => [item, 0])));
     setEditingWorkId(null);
+    setCashReceived(false);
+setCashAmount("");
+setCashManager("없음");
   };
 
   const saveWork = async () => {
     if (!workDate) return alert("작업일을 선택하세요.");
+
+    if (!codeName) {
+  return alert("코드명을 선택하세요.");
+}
     if (isMonthLocked(workDate.slice(0, 7))) {
   alert("마감된 월은 작업을 등록/수정할 수 없습니다.");
   return;
@@ -434,6 +448,9 @@ if (workType === "team" && selectedManagers.length !== teamCount) {
   teamCount: selectedManagers.length,
   visitManagers: selectedManagers,
   items,
+  cashReceived,
+cashAmount: Number(cashAmount || 0),
+cashManager: cashReceived ? cashManager : "없음",
 };
     const dbWork = {
   id: newWork.id,
@@ -444,6 +461,9 @@ if (workType === "team" && selectedManagers.length !== teamCount) {
   team_count: newWork.teamCount,
   visit_managers: newWork.visitManagers,
   items: newWork.items,
+  cash_received: newWork.cashReceived,
+cash_amount: newWork.cashAmount,
+cash_manager: newWork.cashManager,
 };
 
 if (editingWorkId) {
@@ -572,6 +592,9 @@ const loadWorks = async () => {
     teamCount: work.team_count,
     visitManagers: work.visit_managers,
     items: work.items,
+    cashReceived: work.cash_received || false,
+cashAmount: work.cash_amount || 0,
+cashManager: work.cash_manager || "없음",
   }));
 
   setWorks(converted);
@@ -745,6 +768,9 @@ const unlockMonth = async () => {
     setCodeName(work.codeName || "없음");
     setWorkType(work.workType || "solo");
     setTeamCount(work.teamCount || (work.visitManagers?.length || 1));
+    setCashReceived(work.cashReceived || false);
+setCashAmount(work.cashAmount || "");
+setCashManager(work.cashManager || "없음");
 
     const managers = work.visitManagers || [];
     const tempManagers = Array(10).fill("없음");
@@ -758,78 +784,113 @@ setVisitManagers(tempManagers);
     setPage("workAdd");
   };
 
-  const calculateSettlement = () => {
-        const result = {};
+ const calculateSettlement = () => {
+  const result = {};
 
-    monthlyWorks.forEach((work) => {
-      const visitManagers = work.visitManagers || [];
-      const peopleCount = visitManagers.length;
-      if (peopleCount === 0) return;
+  monthlyWorks.forEach((work) => {
+    const visitManagers = work.visitManagers || [];
+    const peopleCount = visitManagers.length;
+    if (peopleCount === 0) return;
 
-      visitManagers.forEach((manager) => {
-        const year = managerYear[manager];
-        if (!year) return;
+    visitManagers.forEach((manager) => {
+      const year = managerYear[manager];
+      if (!year) return;
 
-        const code = `${year}-${work.company}`;
-        const allowance = allowanceTable[code] || {};
+      const code = `${year}-${work.company}`;
+      const allowance = allowanceTable[code] || {};
 
-        if (!result[manager]) {result[manager] = {total: 0,workPay: 0,contractPay: 0,details: {},
-  };
-}
+      if (!result[manager]) {
+        result[manager] = {
+          total: 0,
+          workPay: 0,
+          contractPay: 0,
+          details: {},
+        };
+      }
 
-        Object.entries(work.items).forEach(([itemName, count]) => {
-          if (count > 0) {
-            const unitPay = allowance[itemName] || getCustomItemPay(itemName, work.company) || 0;
-            const pay = Math.floor(
-  (unitPay * count) / peopleCount
-);
+      Object.entries(work.items).forEach(([itemName, count]) => {
+        if (count > 0) {
+          const unitPay =
+            allowance[itemName] ||
+            getCustomItemPay(itemName, work.company) ||
+            0;
 
-            if (!result[manager].details[itemName]) {
-              result[manager].details[itemName] = { count: 0, amount: 0 };
-            }
+          const pay = Math.floor((unitPay * count) / peopleCount);
 
-            result[manager].details[itemName].count += count / peopleCount;
-            result[manager].details[itemName].amount += pay;
-            result[manager].workPay += pay;
-            result[manager].total += pay;
+          if (!result[manager].details[itemName]) {
+            result[manager].details[itemName] = {
+              count: 0,
+              amount: 0,
+            };
           }
-        });
+
+          result[manager].details[itemName].count += count / peopleCount;
+          result[manager].details[itemName].amount += pay;
+          result[manager].workPay += pay;
+          result[manager].total += pay;
+        }
       });
     });
-     contractWorks
-  .filter((contract) =>
-    contract.work_date.startsWith(selectedMonth)
-  )
-  .forEach((contract) => {
-    const manager = contract.manager;
-    const amount = Number(contract.amount || 0);
 
-    if (!result[manager]) {
-      result[manager] = {
-        total: 0,
-        details: {},
-        contractPay: 0,
-      };
+    if (
+      work.cashReceived &&
+      Number(work.cashAmount || 0) > 0 &&
+      work.cashManager &&
+      work.cashManager !== "없음"
+    ) {
+      const manager = work.cashManager;
+      const amount = Number(work.cashAmount || 0);
+
+      if (!result[manager]) {
+        result[manager] = {
+          total: 0,
+          workPay: 0,
+          contractPay: 0,
+          details: {},
+        };
+      }
+
+      if (!result[manager].details["현금수금 차감"]) {
+        result[manager].details["현금수금 차감"] = {
+          count: "",
+          amount: 0,
+        };
+      }
+
+      result[manager].details["현금수금 차감"].amount -= amount;
+      result[manager].total -= amount;
     }
+  });
 
-    if (!result[manager].contractPay) {
-      result[manager].contractPay = 0;
-    }
+  contractWorks
+    .filter((contract) => contract.work_date.startsWith(selectedMonth))
+    .forEach((contract) => {
+      const manager = contract.manager;
+      const amount = Number(contract.amount || 0);
 
-    if (!result[manager].details["계약건"]) {
-  result[manager].details["계약건"] = {
-    count: "",
-    amount: 0,
-  };
-}
+      if (!result[manager]) {
+        result[manager] = {
+          total: 0,
+          workPay: 0,
+          contractPay: 0,
+          details: {},
+        };
+      }
 
-result[manager].details["계약건"].amount += amount;
+      if (!result[manager].details["계약건"]) {
+        result[manager].details["계약건"] = {
+          count: "",
+          amount: 0,
+        };
+      }
 
-    result[manager].contractPay += amount;
-    result[manager].total += amount;
-  }); 
-    return result;
-  };
+      result[manager].details["계약건"].amount += amount;
+      result[manager].contractPay += amount;
+      result[manager].total += amount;
+    });
+
+  return result;
+};
 
   const calculateManagerStats = () =>
     Object.entries(calculateSettlement())
@@ -1554,25 +1615,49 @@ boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
           업무관리 시스템
         </div>
       </div>
+<div style={{ marginBottom: "14px" }}>
+  <div style={ui.formLabel}>사용자</div>
 
-      <div style={{ marginBottom: "14px" }}>
-        <div style={ui.formLabel}>사용자</div>
-        <select
-          value={loginName}
-          onChange={(e) => setLoginName(e.target.value)}
-          style={ui.formInput}
-        >
-          <option value="">사용자 선택</option>
-          {users
-            .filter((user) => !hiddenCodeAccounts.includes(user.name))
-            .map((user) => (
-              <option key={user.id} value={user.name}>
-                {user.name}
-              </option>
-            ))}
-        </select>
-      </div>
+  <input
+    value={loginName}
+    onChange={(e) => setLoginName(e.target.value)}
+    placeholder="이름 검색"
+    style={ui.formInput}
+  />
 
+  {loginName && (
+    <div
+      style={{
+        marginTop: "8px",
+        maxHeight: "180px",
+        overflowY: "auto",
+        border: "1px solid #dbe3ef",
+        borderRadius: "12px",
+        background: "#fff",
+      }}
+    >
+      {users
+        .filter((user) => !hiddenCodeAccounts.includes(user.name))
+        .filter((user) => user.name.includes(loginName))
+        .map((user) => (
+          <div
+            key={user.id}
+            onClick={() => setLoginName(user.name)}
+            style={{
+              padding: "10px 12px",
+              borderBottom: "1px solid #F1F5F9",
+              cursor: "pointer",
+              color: "#111827",
+              fontWeight: "700",
+            }}
+          >
+            {user.name}
+          </div>
+        ))}
+    </div>
+  )}
+</div>
+          
       <div style={{ marginBottom: "18px" }}>
         <div style={ui.formLabel}>비밀번호</div>
         <input
@@ -1955,23 +2040,25 @@ boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
   </div>
 
   {/* 코드명 */}
-  <div>
-    <div style={ui.formLabel}>👤 코드명</div>
-    <select
-  value={codeName}
-  onChange={(e) => setCodeName(e.target.value)}
-  style={ui.formInput}
->
-  {(currentUser?.role === "manager"
-    ? managerCodeMap[currentUser.name] || [currentUser.name]
-    : managerList
-  ).map((name) => (
-    <option key={name} value={name}>
-      {name}
-    </option>
-  ))}
-</select>
-  </div>
+ <div>
+  <div style={ui.formLabel}>👤 코드명</div>
+  <select
+    value={codeName}
+    onChange={(e) => setCodeName(e.target.value)}
+    style={ui.formInput}
+  >
+    <option value="">코드명 선택</option>
+
+    {(currentUser?.role === "manager"
+      ? managerCodeMap[currentUser.name] || [currentUser.name]
+      : managerList.filter((name) => name !== "없음")
+    ).map((name) => (
+      <option key={name} value={name}>
+        {name}
+      </option>
+    ))}
+  </select>
+</div>
 
   {/* 작업구분 */}
   <div>
@@ -2002,6 +2089,58 @@ boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
     </div>
   )}
 </div>
+
+<div style={{ marginTop: "18px" }}>
+  <label style={{ fontWeight: "800", color: "#334155" }}>
+    <input
+      type="checkbox"
+      checked={cashReceived}
+      onChange={(e) => setCashReceived(e.target.checked)}
+      style={{ marginRight: "8px" }}
+    />
+    현금수금 있음
+  </label>
+</div>
+
+{cashReceived && (
+  <div
+    style={{
+      display: "grid",
+      gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+      gap: "12px",
+      marginTop: "12px",
+    }}
+  >
+    <div>
+      <div style={ui.formLabel}>수금 매니저</div>
+      <select
+        value={cashManager}
+        onChange={(e) => setCashManager(e.target.value)}
+        style={ui.formInput}
+      >
+        <option value="없음">선택</option>
+        {managerList
+          .filter((name) => name !== "없음")
+          .map((name) => (
+            <option key={name} value={name}>
+              {name}
+            </option>
+          ))}
+      </select>
+    </div>
+
+    <div>
+      <div style={ui.formLabel}>현금수금액</div>
+      <input
+        type="number"
+        value={cashAmount}
+        onChange={(e) => setCashAmount(e.target.value)}
+        placeholder="예: 50000"
+        style={ui.formInput}
+      />
+    </div>
+  </div>
+)}
     
 
       <div
