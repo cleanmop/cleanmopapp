@@ -1501,59 +1501,153 @@ boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
   return (
     <div style={{ padding: "20px" }}>
       {!currentUser ? (
-  <>
-    <h2>로그인</h2>
-
-    <select
-      value={loginName}
-      onChange={(e) => setLoginName(e.target.value)}
-    >
-      <option value="">사용자 선택</option>
-      {users
-  .filter(
-    (user) => !hiddenCodeAccounts.includes(user.name)
-  )
-  .map((user) => (
-        <option key={user.id} value={user.name}>
-          {user.name}
-        </option>
-      ))}
-    </select>
-
-    <br /><br />
-
-    <input
-      type="password"
-      value={loginPassword}
-      onChange={(e) => setLoginPassword(e.target.value)}
-      placeholder="비밀번호"
-    />
-
-    <br /><br />
-
-    <button
-      onClick={() => {
-        const selected = users.find(
-          (user) =>
-            user.name === loginName &&
-            user.password === loginPassword
-        );
-
-        if (!selected) {
-          alert("이름 또는 비밀번호가 맞지 않습니다.");
-          return;
-        }
-
-        setCurrentUser(selected);
-localStorage.setItem("currentUser", JSON.stringify(selected));
-
-setSelectedManager(selected.name);
-setLoginPassword("");
+  <div
+    style={{
+      minHeight: "100vh",
+      margin: "-20px",
+      padding: "24px",
+      background: "linear-gradient(135deg,#0B5CFF,#003A9B)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+    }}
+  >
+    <div
+      style={{
+        width: "100%",
+        maxWidth: "420px",
+        background: "white",
+        borderRadius: "28px",
+        padding: "28px 22px",
+        boxShadow: "0 20px 40px rgba(0,0,0,0.22)",
       }}
     >
-      로그인
-    </button>
-  </>
+      <div style={{ textAlign: "center", marginBottom: "26px" }}>
+        <img
+  src="/logo.png"
+  alt="클린맙"
+  style={{
+    width: "140px",
+    height: "auto",
+    marginBottom: "12px",
+    objectFit: "contain",
+  }}
+/>  
+        <div
+          style={{
+            fontSize: "25px",
+            fontWeight: "900",
+            color: "#0B5CFF",
+          }}
+        >
+          클린맙
+        </div>
+
+        <div
+          style={{
+            marginTop: "6px",
+            fontSize: "14px",
+            color: "#64748B",
+            fontWeight: "600",
+          }}
+        >
+          업무관리 시스템
+        </div>
+      </div>
+
+      <div style={{ marginBottom: "14px" }}>
+        <div style={ui.formLabel}>사용자</div>
+        <select
+          value={loginName}
+          onChange={(e) => setLoginName(e.target.value)}
+          style={ui.formInput}
+        >
+          <option value="">사용자 선택</option>
+          {users
+            .filter((user) => !hiddenCodeAccounts.includes(user.name))
+            .map((user) => (
+              <option key={user.id} value={user.name}>
+                {user.name}
+              </option>
+            ))}
+        </select>
+      </div>
+
+      <div style={{ marginBottom: "18px" }}>
+        <div style={ui.formLabel}>비밀번호</div>
+        <input
+          type="password"
+          value={loginPassword}
+          onChange={(e) => setLoginPassword(e.target.value)}
+          placeholder="비밀번호 입력"
+          style={ui.formInput}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              const selected = users.find(
+                (user) =>
+                  user.name === loginName &&
+                  user.password === loginPassword
+              );
+
+              if (!selected) {
+                alert("이름 또는 비밀번호가 맞지 않습니다.");
+                return;
+              }
+
+              setCurrentUser(selected);
+              localStorage.setItem("currentUser", JSON.stringify(selected));
+              setSelectedManager(selected.name);
+              setLoginPassword("");
+            }
+          }}
+        />
+      </div>
+
+      <button
+        onClick={() => {
+          const selected = users.find(
+            (user) =>
+              user.name === loginName &&
+              user.password === loginPassword
+          );
+
+          if (!selected) {
+            alert("이름 또는 비밀번호가 맞지 않습니다.");
+            return;
+          }
+
+          setCurrentUser(selected);
+          localStorage.setItem("currentUser", JSON.stringify(selected));
+          setSelectedManager(selected.name);
+          setLoginPassword("");
+        }}
+        style={{
+          width: "100%",
+          height: "52px",
+          borderRadius: "16px",
+          border: "none",
+          background: "#0B5CFF",
+          color: "white",
+          fontSize: "17px",
+          fontWeight: "900",
+          cursor: "pointer",
+        }}
+      >
+        로그인
+      </button>
+
+      <div
+        style={{
+          marginTop: "18px",
+          textAlign: "center",
+          fontSize: "12px",
+          color: "#94A3B8",
+        }}
+      >
+        Cleanmop Partner App
+      </div>
+    </div>
+  </div>
 ) : null}
 
 {page === "home" && currentUser && (
