@@ -1260,6 +1260,14 @@ const deleteVoc = async (id) => {
     return;
   }
 
+  const deleteVoc = async (id) => {
+  if (currentUser?.role !== "admin") {
+    alert("관리자만 삭제할 수 있습니다.");
+    return;
+  }
+
+  const targetVoc = vocs.find((voc) => voc.id === id);
+
   if (!confirm("이 VOC를 삭제할까요?")) return;
 
   const { error } = await supabase
@@ -2815,9 +2823,15 @@ boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
               <div style={smallTextStyle}>정도: {vocPenalty[voc.level]?.label}</div>
               <div style={{ marginTop: "10px", background: "#F8FAFC", borderRadius: "12px", padding: "10px", color: "#334155" }}>{voc.memo}</div>
 
-              {!isMonthLocked(voc.date.slice(0, 7)) && (
-                <button style={{ ...dangerButtonStyle, marginTop: "12px" }} onClick={() => deleteVoc(voc.id)}>삭제</button>
-              )}
+              {currentUser?.role === "admin" &&
+ !isMonthLocked(voc.date.slice(0, 7)) && (
+  <button
+    style={{ ...dangerButtonStyle, marginTop: "12px" }}
+    onClick={() => deleteVoc(voc.id)}
+  >
+    삭제
+  </button>
+)}
             </div>
           ))}
         </>
