@@ -1253,20 +1253,17 @@ const deleteUser = async (id) => {
 };
 
 const deleteVoc = async (id) => {
-  const targetVoc = vocs.find((voc) => voc.id === id);
-
-  if (targetVoc && isMonthLocked(targetVoc.date.slice(0, 7))) {
-    alert("마감된 월의 VOC는 삭제할 수 없습니다.");
-    return;
-  }
-
-  const deleteVoc = async (id) => {
   if (currentUser?.role !== "admin") {
     alert("관리자만 삭제할 수 있습니다.");
     return;
   }
 
   const targetVoc = vocs.find((voc) => voc.id === id);
+
+  if (targetVoc && isMonthLocked(targetVoc.date.slice(0, 7))) {
+    alert("마감된 월의 VOC는 삭제할 수 없습니다.");
+    return;
+  }
 
   if (!confirm("이 VOC를 삭제할까요?")) return;
 
