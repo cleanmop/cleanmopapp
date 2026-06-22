@@ -229,7 +229,7 @@ const [cashManager, setCashManager] = useState("없음");
   "임정은": ["임정은"],
   "박진배": ["박진배", "최종권"],
   "이중근": ["이중근"],
-  "이상현": ["이상현"]
+  "이상현": ["이상현"],["김성민"]
 };
   const hiddenCodeAccounts = [
   "이왕국",
